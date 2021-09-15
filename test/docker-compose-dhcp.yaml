@@ -1,0 +1,8 @@
+services:
+  dhcp:
+   image: networkboot/dhcpd
+   network_mode: host
+   command: ["enp0s8"]
+   volumes:
+     - ${PWD}/dhcpd.conf:/data/dhcpd.conf
+

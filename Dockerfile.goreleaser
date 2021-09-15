@@ -1,0 +1,6 @@
+FROM scratch
+
+COPY proxydhcp /proxydhcp
+EXPOSE 67
+
+ENTRYPOINT ["/proxydhcp"]

@@ -1,0 +1,21 @@
+services:
+  #dhcp:
+  # image: networkboot/dhcpd
+  # network_mode: host
+  # command: ["enp0s8"]
+  # volumes:
+  #   - ${PWD}/dhcpd.conf:/data/dhcpd.conf
+
+  proxydhcp:
+    build: ../
+    network_mode: host
+    #depends_on:
+    #  - dhcp
+
+  #dhcpclient:
+    #image: golang:1.16
+    #network_mode: host
+    # pdhcp -i eth0 -R '{"client-system": 0, "user-class": "iPXE"}' | jq
+    #command: [ "/client.sh" ]
+    #volumes:
+    #  - ${PWD}/client.sh:/client.sh
