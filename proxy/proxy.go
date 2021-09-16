@@ -1,4 +1,4 @@
-// Package proxy implements proxyDHCP functionality
+// Package proxy implements proxydhcp functionality
 //
 // This was taken from https://github.com/danderson/netboot/blob/master/pixiecore/dhcp.go
 // and modified. Contributions to pixiecore would have been preferred but pixiecore
@@ -31,7 +31,7 @@ type machine struct {
 	uClass UserClass
 }
 
-// Serve proxyDHCP requests.
+// Serve proxydhcp requests.
 // 1. listen for generic DHCP packets [conn.RecvDHCP()]
 // 2. check if the DHCP packet is requesting PXE boot [isPXEPacket(pkt)]
 // 3.
@@ -89,7 +89,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, loc Locator) {
 				l.V(0).Info("Failed to send ProxyDHCP offer", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 				return
 			}
-			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", m), "struct", m)
+			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", msg), "struct", msg)
 		}(pkt)
 	}
 }

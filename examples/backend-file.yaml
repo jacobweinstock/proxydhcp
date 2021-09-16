@@ -1,0 +1,24 @@
+---
+binaries:
+  x86PC: undionly.kpxe
+  efiIA32: ipxe.efi
+  efix8664: ipxe.efi
+  efiBC: ipxe.efi
+globals:
+  #tftp: "192.168.2.109"
+  url: "http://boot.netboot.xyz"
+hwAddrs:
+  08:00:27:29:4e:67:
+    allowPxe: true
+    uefi: false
+    arch: "x86_64"
+    ipxe:
+      tftp: "192.168.2.109"
+      #url: "http://boot.netboot.xyz"
+  00:00:00:00:00:02:
+    allowPxe: true
+    uefi: false
+    arch: "x86_64"
+    ipxe:
+      script: ""
+      url: ""

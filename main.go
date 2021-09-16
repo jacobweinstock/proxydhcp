@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jacobweinstock/proxyDHCP/cmd"
+	"github.com/jacobweinstock/proxydhcp/cmd"
 )
 
 func main() {

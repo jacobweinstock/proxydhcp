@@ -9,6 +9,10 @@ services:
   proxydhcp:
     build: ../
     network_mode: host
+    command: ["file", "-path", "/backend-file.yaml"]
+    volumes:
+       #- ${PWD}/../examples/backend-file.yaml:/backend-file.yaml
+       - /home/ubuntu/backend-file.yaml:/backend-file.yaml
     #depends_on:
     #  - dhcp
 

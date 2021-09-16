@@ -1,2 +1,2 @@
-# proxyDHCP
-standalone proxyDHCP server
+# proxydhcp
+standalone proxydhcp server

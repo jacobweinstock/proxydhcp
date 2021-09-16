@@ -7,9 +7,9 @@ RUN go mod download
 COPY . /code
 RUN CGO_ENABLED=0 go build -o proxydhcp
 
-FROM scratch
+FROM alpine
 
 COPY --from=builder /code/proxydhcp /proxydhcp
+EXPOSE 67/udp
 
-EXPOSE 67
 ENTRYPOINT ["/proxydhcp"]
