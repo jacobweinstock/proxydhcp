@@ -60,7 +60,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, loc Locator) {
 			}
 			mach, err := processMachine(pkt)
 			if err != nil {
-				l.V(0).Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+				l.V(0).Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
 				return
 			}
 
@@ -132,11 +132,17 @@ func isPXEPacket(pkt *dhcp4.Packet) error {
 }
 
 // processMachine reads a dhcp packet and populates a machine struct.
-func processMachine(pkt *dhcp4.Packet) (mach machine, err error) {
+func processMachine(pkt *dhcp4.Packet) (machine, error) {
+	mach := machine{}
 	fwt, err := pkt.Options.Uint16(93)
 	if err != nil {
 		return mach, fmt.Errorf("malformed DHCP option 93 (required for PXE): %w", err)
 	}
+	if userClass, err := pkt.Options.String(77); err == nil {
+		mach.uClass = UserClass(userClass)
+	}
+	mach.mac = pkt.HardwareAddr
+	fmt.Printf("%+v\n", mach)
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
 	// https://www.rfc-editor.org/errata_search.php?rfc=4578
@@ -146,7 +152,7 @@ func processMachine(pkt *dhcp4.Packet) (mach machine, err error) {
 	case 1:
 		mach.arch = NecPC98
 	case 2:
-		mach.arch = EfiItanium
+		mach.arch = EFIItanium
 	case 3:
 		mach.arch = DecAlpha
 	case 4:
@@ -154,21 +160,30 @@ func processMachine(pkt *dhcp4.Packet) (mach machine, err error) {
 	case 5:
 		mach.arch = IntelLeanClient
 	case 6:
-		mach.arch = EfiIA32
+		mach.arch = EFIIA32
 	case 7:
-		mach.arch = Efix8664
+		mach.arch = EFIx8664
 	case 8:
-		mach.arch = EfiXscale
+		mach.arch = EFIXscale
 	case 9:
-		mach.arch = EfiBC
+		mach.arch = EFIBC
+	case 10:
+		mach.arch = EFIARM
+	case 11:
+		mach.arch = EFIAARCH64
+	case 15:
+		mach.arch = EFIx86Http
+	case 16:
+		mach.arch = EFIx8664Http
+	case 18:
+		mach.arch = EFIARMHttp
+	case 19:
+		mach.arch = EFIAARCH64Http
 	default:
+		fmt.Printf("%+v\n", mach)
 		return mach, fmt.Errorf("unsupported client firmware type '%d' (please file a bug!)", fwt)
 	}
 
-	if userClass, err := pkt.Options.String(77); err == nil {
-		mach.uClass = UserClass(userClass)
-	}
-	mach.mac = pkt.HardwareAddr
 	return mach, nil
 }
 
@@ -205,7 +220,7 @@ func createMSG(_ context.Context, pkt *dhcp4.Packet, mach machine) (*dhcp4.Packe
 	return resp, nil
 }
 
-// bootOpts updates a DHCP packet with values for options 54, 66, & 67 set.
+// bootOpts updates a DHCP packet with values for options 54, 66, & 67.
 func bootOpts(ctx context.Context, msg dhcp4.Packet, mach machine, loc Locator, serverIP string) (*dhcp4.Packet, error) {
 	var err error
 	msg.BootFilename, msg.BootServerName, err = loc.Locate(ctx, mach.mac, mach.uClass, mach.arch)
@@ -219,7 +234,7 @@ func bootOpts(ctx context.Context, msg dhcp4.Packet, mach machine, loc Locator, 
 			msg.Options[dhcp4.OptServerIdentifier] = i.IPAddr().IP
 		}
 	} else {
-		a, _ := netaddr.ParseIP(serverIP) // if the Bootfilename is a full URL, then the ServerAddr doesn't matter. It just can't be 0.0.0.0 or nil.
+		a, _ := netaddr.ParseIP(serverIP) // if the Bootfilename is a full URL, then the ServerAddr can be any arbitrary IP excepct 0.0.0.0 or nil.
 		msg.ServerAddr = a.IPAddr().IP
 	}
 	return &msg, nil

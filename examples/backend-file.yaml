@@ -4,6 +4,7 @@ binaries:
   efiIA32: ipxe.efi
   efix8664: ipxe.efi
   efiBC: ipxe.efi
+  efiAARCH64: ipxe.efi
 globals:
   #tftp: "192.168.2.109"
   url: "http://boot.netboot.xyz"

@@ -25,10 +25,11 @@ type Data struct {
 }
 
 type binaries struct {
-	X86PC    string `yaml:"x86PC"`
-	EfiIA32  string `yaml:"efiIA32"`
-	Efix8664 string `yaml:"efix8664"`
-	EfiBC    string `yaml:"efiBC"`
+	X86PC      string `yaml:"x86PC"`
+	EfiIA32    string `yaml:"efiIA32"`
+	Efix8664   string `yaml:"efix8664"`
+	EfiBC      string `yaml:"efiBC"`
+	EFIAARCH64 string `yaml:"efiAARCH64"`
 }
 
 type globals struct {
@@ -45,7 +46,7 @@ type hw struct {
 
 type ipxe struct {
 	Tftp string `yaml:"tftp"` // TODO yaml validation. cant be longer than 64 chars; https://github.com/danderson/netboot/blob/fc2840fa7b05c2f2447452e0dcc35a5a76f6acfa/dhcp4/packet.go#L211
-	Url  string `yaml:"url"`  // TODO yaml validation. this cant be longer than 128 chars; https://github.com/danderson/netboot/blob/fc2840fa7b05c2f2447452e0dcc35a5a76f6acfa/dhcp4/packet.go#L223
+	URL  string `yaml:"url"`  // TODO yaml validation. this cant be longer than 128 chars; https://github.com/danderson/netboot/blob/fc2840fa7b05c2f2447452e0dcc35a5a76f6acfa/dhcp4/packet.go#L223
 }
 
 func (c *Config) Locate(_ context.Context, mac net.HardwareAddr, uc proxy.UserClass, arch proxy.Architecture) (string, string, error) {
@@ -75,26 +76,34 @@ func (c *Config) Locate(_ context.Context, mac net.HardwareAddr, uc proxy.UserCl
 	switch arch {
 	case proxy.X86PC:
 		bootfilename = c.Data.Binaries.X86PC
-		//bootservername = hw.Ipxe.Tftp
-	case proxy.EfiIA32:
+		// bootservername = hw.Ipxe.Tftp
+	case proxy.EFIIA32:
 		bootfilename = c.Data.Binaries.EfiIA32
-		//bootservername = hw.Ipxe.Tftp
-	case proxy.Efix8664:
+		// bootservername = hw.Ipxe.Tftp
+	case proxy.EFIx8664:
 		bootfilename = c.Data.Binaries.Efix8664
-		//bootservername = hw.Ipxe.Tftp
-	case proxy.EfiBC:
+		// bootservername = hw.Ipxe.Tftp
+	case proxy.EFIBC:
 		bootfilename = c.Data.Binaries.EfiBC
-		//bootservername = hw.Ipxe.Tftp
+		// bootservername = hw.Ipxe.Tftp
+	case proxy.EFIAARCH64:
+		bootfilename = c.Data.Binaries.EFIAARCH64
+	case proxy.EFIAARCH64Http:
+		if hw.Ipxe.URL == "" {
+			bootfilename = c.Data.Globals.URL
+		} else {
+			bootfilename = hw.Ipxe.URL
+		}
 	default:
 		bootfilename = "/unsupported"
 		bootservername = ""
 	}
 	switch uc {
 	case proxy.IPXE, proxy.Tinkerbell:
-		if hw.Ipxe.Url == "" {
+		if hw.Ipxe.URL == "" {
 			bootfilename = c.Data.Globals.URL
 		} else {
-			bootfilename = hw.Ipxe.Url
+			bootfilename = hw.Ipxe.URL
 		}
 		bootservername = ""
 	default:
@@ -117,7 +126,7 @@ func (c *Config) FirstLoad() error {
 		return err
 	}
 	var d Data
-	if err := yaml.Unmarshal([]byte(yamlFile), &d); err != nil {
+	if err := yaml.Unmarshal(yamlFile, &d); err != nil {
 		return err
 	}
 	c.Data = &d
@@ -199,7 +208,7 @@ func (c *Config) Load() error {
 		return err
 	}
 	var d Data
-	if err := yaml.Unmarshal([]byte(yamlFile), &d); err != nil {
+	if err := yaml.Unmarshal(yamlFile, &d); err != nil {
 		fmt.Println("3.", err)
 		return err
 	}

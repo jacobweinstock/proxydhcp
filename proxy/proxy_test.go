@@ -43,7 +43,7 @@ func (t testLocator) Locate(_ context.Context, _ net.HardwareAddr, uc UserClass,
 	case X86PC:
 		bootfilename = "undionly.kpxe"
 		bootservername = t.ip
-	case EfiIA32, Efix8664, EfiBC:
+	case EFIIA32, EFIx8664, EFIBC:
 		bootfilename = "ipxe.efi"
 		bootservername = t.ip
 	default:
@@ -231,7 +231,7 @@ func machineType(n int) machine {
 	case 1:
 		mach.arch = NecPC98
 	case 2:
-		mach.arch = EfiItanium
+		mach.arch = EFIItanium
 	case 3:
 		mach.arch = DecAlpha
 	case 4:
@@ -239,13 +239,13 @@ func machineType(n int) machine {
 	case 5:
 		mach.arch = IntelLeanClient
 	case 6:
-		mach.arch = EfiIA32
+		mach.arch = EFIIA32
 	case 7:
-		mach.arch = Efix8664
+		mach.arch = EFIx8664
 	case 8:
-		mach.arch = EfiXscale
+		mach.arch = EFIXscale
 	case 9:
-		mach.arch = EfiBC
+		mach.arch = EFIBC
 	default:
 		mach.arch = Architecture(-1)
 	}
@@ -279,8 +279,8 @@ func opt93(n int) dhcp4.Options {
 	case 10:
 		opts[93] = []byte{0x0, 0x9}
 		opts[77] = []byte("tinkerbell")
-	case 11:
-		opts[93] = []byte{0x0, 0xb}
+	case 31:
+		opts[93] = []byte{0x0, 0x1F}
 	}
 
 	return opts
@@ -302,7 +302,7 @@ func TestProcessMachine(t *testing.T) {
 		"success arch 7":        {input: &dhcp4.Packet{Options: opt93(7)}, wantError: nil, wantMachine: machineType(7)},
 		"success arch 8":        {input: &dhcp4.Packet{Options: opt93(8)}, wantError: nil, wantMachine: machineType(8)},
 		"success arch 9":        {input: &dhcp4.Packet{Options: opt93(9)}, wantError: nil, wantMachine: machineType(9)},
-		"fail, unknown arch 11": {input: &dhcp4.Packet{Options: opt93(11)}, wantError: fmt.Errorf("unsupported client firmware type '%d' (please file a bug!)", 11)},
+		"fail, unknown arch 31": {input: &dhcp4.Packet{Options: opt93(31)}, wantError: fmt.Errorf("unsupported client firmware type '%d' (please file a bug!)", 31)},
 		"fail, bad opt 93":      {input: &dhcp4.Packet{Options: opt93(12)}, wantError: fmt.Errorf("malformed DHCP option 93 (required for PXE): option not present in Options")},
 	}
 
@@ -458,14 +458,14 @@ func TestArchString(t *testing.T) {
 	}{
 		"X86PC":           {input: X86PC, want: "Intel x86PC"},
 		"NecPC98":         {input: NecPC98, want: "NEC/PC98"},
-		"EfiItanium":      {input: EfiItanium, want: "EFI Itanium"},
+		"EfiItanium":      {input: EFIItanium, want: "EFI Itanium"},
 		"DecAlpha":        {input: DecAlpha, want: "DEC Alpha"},
 		"Arcx86":          {input: Arcx86, want: "Arc x86"},
 		"IntelLeanClient": {input: IntelLeanClient, want: "Intel Lean Client"},
-		"EfiIA32":         {input: EfiIA32, want: "EFI IA32"},
-		"Efix8664":        {input: Efix8664, want: "EFI x86-64"},
-		"EfiXscale":       {input: EfiXscale, want: "EFI Xscale"},
-		"EfiBC":           {input: EfiBC, want: "EFI BC"},
+		"EfiIA32":         {input: EFIIA32, want: "EFI IA32"},
+		"Efix8664":        {input: EFIx8664, want: "EFI x86-64"},
+		"EfiXscale":       {input: EFIXscale, want: "EFI Xscale"},
+		"EfiBC":           {input: EFIBC, want: "EFI BC"},
 		"unknown":         {input: Architecture(20), want: "unknown architecture: 20"},
 	}
 

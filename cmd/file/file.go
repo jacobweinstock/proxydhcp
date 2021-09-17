@@ -39,7 +39,7 @@ func New(rootConfig *root.Config) *ffcli.Command {
 }
 
 // Exec function for this command.
-func (c *Config) Exec(ctx context.Context, args []string) error {
+func (c *Config) Exec(ctx context.Context, _ []string) error {
 	if err := c.validateConfig(ctx); err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (c *Config) Exec(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (c *Config) validateConfig(ctx context.Context) error {
+func (c *Config) validateConfig(_ context.Context) error {
 	if err := validator.New().Struct(c); err != nil {
 		var errMsg []interface{}
 		s := "'%v' is not a valid %v"

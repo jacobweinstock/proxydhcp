@@ -29,8 +29,8 @@ func Execute(ctx context.Context) error {
 	var (
 		rootCmd, rootConfig = root.New()
 		fileCmd             = file.New(rootConfig)
-		//tinkCmd             = tinkerbell.New(rootConfig)
-		//kubeCmd             = kube.New(rootConfig)
+		// tinkCmd             = tinkerbell.New(rootConfig)
+		// kubeCmd             = kube.New(rootConfig)
 	)
 
 	rootCmd.Subcommands = []*ffcli.Command{fileCmd /*tinkCmd, kubeCmd*/}
@@ -41,10 +41,8 @@ func Execute(ctx context.Context) error {
 		return err
 	}
 	rootConfig.Log = defaultLogger(rootConfig.LogLevel)
-	if err := rootCmd.Run(ctx); err != nil {
-		return err
-	}
-	return nil
+
+	return rootCmd.Run(ctx)
 }
 
 // Execute sets up the config and logging, then runs the proxydhcp Server.
@@ -52,7 +50,7 @@ func Execute2(ctx context.Context) error {
 	fs := flag.NewFlagSet("proxydhcp", flag.ExitOnError)
 	addr := fs.String("addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
 	ll := fs.String("loglevel", "info", "log level")
-	//ip := fs.String("ip", "", "IP to use for the proxydhcp server.")
+	// ip := fs.String("ip", "", "IP to use for the proxydhcp server.")
 	err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("PROXYDHCP"))
 	if err != nil {
 		return err
@@ -74,7 +72,7 @@ func Execute2(ctx context.Context) error {
 
 	log.V(0).Info("starting proxydhcp", "addr", *addr)
 	// proxy.Serve will block until the context (ctx) is canceled .
-	//proxy.Serve(ctx, log, listener, app.Default{IP: net.ParseIP(*ip)})
+	// proxy.Serve(ctx, log, listener, app.Default{IP: net.ParseIP(*ip)})
 
 	return nil
 }

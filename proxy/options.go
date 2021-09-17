@@ -28,14 +28,22 @@ const (
 const (
 	X86PC           Architecture = iota // "Classic" x86 BIOS with PXE/UNDI support
 	NecPC98                             // NEC/PC98
-	EfiItanium                          // EFI Itanium
+	EFIItanium                          // EFI Itanium
 	DecAlpha                            // DEC Alpha
 	Arcx86                              // Arc x86
 	IntelLeanClient                     // Intel Lean Client
-	EfiIA32                             // EFI IA32, 32-bit x86 processor running EFI
-	Efix8664                            // EFI x86-64, "Classic" x86 BIOS running iPXE (no UNDI support)
-	EfiXscale                           // EFI Xscale
-	EfiBC                               // EFI BC
+	EFIIA32                             // EFI IA32, 32-bit x86 processor running EFI
+	EFIx8664                            // EFI x86-64, "Classic" x86 BIOS running iPXE (no UNDI support)
+	EFIXscale                           // EFI Xscale
+	EFIBC                               // EFI BC
+	// https://github.com/tianocore/edk2/blob/ef5dcba975ee3b4c29b19ad0b23d371a2cd9d60a/MdePkg/Include/IndustryStandard/Dhcp.h#L258-L272
+	// https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
+	EFIARM                  // EFI ARM x86, uefi 32 for PXE
+	EFIAARCH64              // EFI ARM x86_64, uefi 64 for PXE
+	EFIx86Http     = 0x000f // EFI x86 HTTP, x86 uefi boot from http
+	EFIx8664Http   = 0x0010 // EFI x86-64 HTTP, x86_64 uefi boot from http
+	EFIARMHttp     = 0x0012 // EFI ARM x86 HTTP, Arm uefi 32 boot from http
+	EFIAARCH64Http = 0x0013 // EFI ARM x86-64 HTTP, Arm uefi 64 boot from http
 )
 
 /*
@@ -60,7 +68,7 @@ func (a Architecture) String() string {
 		return "Intel x86PC"
 	case NecPC98:
 		return "NEC/PC98"
-	case EfiItanium:
+	case EFIItanium:
 		return "EFI Itanium"
 	case DecAlpha:
 		return "DEC Alpha"
@@ -68,14 +76,26 @@ func (a Architecture) String() string {
 		return "Arc x86"
 	case IntelLeanClient:
 		return "Intel Lean Client"
-	case EfiIA32:
+	case EFIIA32:
 		return "EFI IA32"
-	case Efix8664:
+	case EFIx8664:
 		return "EFI x86-64"
-	case EfiXscale:
+	case EFIXscale:
 		return "EFI Xscale"
-	case EfiBC:
+	case EFIBC:
 		return "EFI BC"
+	case EFIARM:
+		return "EFI ARM x86"
+	case EFIAARCH64:
+		return "EFI ARM x86_64"
+	case EFIx86Http:
+		return "EFI x86 HTTP"
+	case EFIx8664Http:
+		return "EFI x86-64 HTTP"
+	case EFIARMHttp:
+		return "EFI ARM x86 HTTP"
+	case EFIAARCH64Http:
+		return "EFI ARM x86-64 HTTP"
 	default:
 		return fmt.Sprintf("unknown architecture: %d", a)
 	}
