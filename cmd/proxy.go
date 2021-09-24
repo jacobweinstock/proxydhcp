@@ -174,6 +174,6 @@ func (c *config) Exec(ctx context.Context, _ []string) error {
 
 	log.V(0).Info("starting proxydhcp", "addr1", c.Addr, "addr2", "0.0.0.0:4011")
 	// proxy.Serve will block until the context (ctx) is canceled .
-	proxy.Serve(ctx, log, redirectionListener, c.TftpAddr, c.HttpAddr, c.IPXEURL, c.CustomUserClass)
+	proxy.Serve(ctx, log, redirectionListener, ta, ha, c.IPXEURL, c.CustomUserClass)
 	return nil
 }

@@ -19,7 +19,7 @@ import (
 func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr, httpAddr, ipxeURL, uClass string) {
 	listener := ipv4.NewPacketConn(conn)
 	if err := listener.SetControlMessage(ipv4.FlagInterface, true); err != nil {
-		panic(fmt.Errorf("Couldn't get interface metadata on PXE port: %s", err))
+		panic(fmt.Errorf("couldn't get interface metadata on PXE port: %s", err))
 	}
 
 	for {
@@ -31,12 +31,12 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 		buf := make([]byte, 1024)
 		n, msg, addr, err := listener.ReadFrom(buf)
 		if err != nil {
-			l.V(0).Info("Error Receiving packet:", err)
+			l.V(0).Info("Error Receiving packet:", "err", err)
 			continue
 		}
 		pkt, err := dhcp4.Unmarshal(buf[:n])
 		if err != nil {
-			l.V(0).Info("Packet from %s is not a DHCP packet: %s", addr, err)
+			l.V(0).Info("Packet is not a DHCP packet", "addr", addr, "err", err)
 			continue
 		}
 

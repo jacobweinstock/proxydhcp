@@ -2,4 +2,4 @@ services:
   proxydhcp:
     build: ../
     network_mode: host
-    command: ["-http-addr", "192.168.2.109", "-tftp-addr", "192.168.2.109", "-ipxe-url", "http://192.168.2.109/auto.ipxe"]
+    command: ["-http-addr", "http://192.168.2.109", "-tftp-addr", "tftp://192.168.2.109", "-ipxe-url", "http://192.168.2.109/auto.ipxe"]

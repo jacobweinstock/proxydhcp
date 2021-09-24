@@ -266,6 +266,7 @@ func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 		opt10, _ := hex.DecodeString("00505845")
 		pxe[9] = opt9
 		pxe[10] = opt10
+		fmt.Println("PXE: Raspberry Pi detected, adding options 9 and 10")
 	}
 
 	bs, err := pxe.Marshal()
