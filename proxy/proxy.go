@@ -7,22 +7,16 @@ package proxy
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"go.universe.tf/netboot/dhcp4"
 	"inet.af/netaddr"
 )
-
-// Locator interface for getting options 66 and 67 - ipxe binary and script locations.
-type Locator interface {
-	// Locate takes in context, hardware (mac) address, User-Class (User Class Information) - option 77, Client System (Client System Architecture) - option 93
-	// and returns the location to an ipxe binary or script.
-	// It returns Server-Name (TFTP Server Name) - option 66, the Bootfile-Name (Boot File Name) - option 67.
-	Locate(context.Context, net.HardwareAddr, UserClass, Architecture) (FileName string, ServerName string, err error)
-}
 
 // machine describes a device that is requesting a network boot.
 type machine struct {
@@ -35,7 +29,7 @@ type machine struct {
 // 1. listen for generic DHCP packets [conn.RecvDHCP()]
 // 2. check if the DHCP packet is requesting PXE boot [isPXEPacket(pkt)]
 // 3.
-func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, loc Locator) {
+func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpAddr, ipxeURL, uClass string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -54,84 +48,77 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, loc Locator) {
 		}
 
 		go func(pkt *dhcp4.Packet) {
-			if err = isPXEPacket(pkt); err != nil {
-				l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+			resp := dhcp4.Packet{
+				Options: make(dhcp4.Options),
+			}
+			switch pkt.Type {
+			case dhcp4.MsgDiscover:
+				if err = isDiscoverPXEPacket(pkt); err != nil {
+					l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+					return
+				}
+				// dhcp discover packets should be answered with a dhcp offer
+				resp.Type = dhcp4.MsgOffer
+
+			case dhcp4.MsgRequest:
+				if err = isRequestPXEPacket(pkt); err != nil {
+					l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+					return
+				}
+				// dhcp request packets should be answered with a dhcp ack
+				resp.Type = dhcp4.MsgAck
+			default:
+				l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr)
 				return
 			}
+
+			// TODO add link to intel spec for this needing to be set
+			resp, err = setOpt43(resp, pkt.HardwareAddr)
+			if err != nil {
+				l.V(0).Info("error setting opt 43", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+			}
+
+			resp = withGenericHeaders(resp, pkt.TransactionID, pkt.HardwareAddr, pkt.RelayAddr)
+			resp = setOpt60(resp, pxeClient)
+			resp = withOpt97(resp, pkt.Options[97])
+			resp = withHeaderCiaddr(resp)
+
 			mach, err := processMachine(pkt)
 			if err != nil {
 				l.V(0).Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
 				return
 			}
 
-			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch)
+			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
-			m, err := createMSG(ctx, pkt, mach)
-			if err != nil {
-				l.V(0).Error(err, "Failed to construct ProxyDHCP offer", "hwaddr", pkt.HardwareAddr)
-				return
-			}
-			switch pkt.Type {
-			case dhcp4.MsgDiscover:
-				m.Type = dhcp4.MsgOffer
-			case dhcp4.MsgRequest:
-				m.Type = dhcp4.MsgAck
-			default:
+			i, _ := netaddr.ParseIP(tftpAddr)
+			bootFileName, found := defaults[mach.arch]
+			if !found {
+				bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
+				resp = setOpt60(resp, httpClient)
+				i, _ = netaddr.ParseIP(httpAddr)
+				l.V(0).Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
 			}
 
-			msg, err := bootOpts(ctx, *m, mach, loc, interfaceIP(intf).String())
-			if err != nil {
-				l.V(0).Error(err, "Failed to construct ProxyDHCP offer", "hwaddr", pkt.HardwareAddr)
-				return
+			resp.Options[54] = i.IPAddr().IP
+			resp = withHeaderSiaddr(resp, i.IPAddr().IP)
+			resp = withHeaderSname(resp, i.String())
+
+			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
+				resp = withHeaderBfilename(resp, ipxeURL)
+			} else {
+				resp = withHeaderBfilename(resp, bootFileName)
 			}
 
-			if err = conn.SendDHCP(msg, intf); err != nil {
+			if err = conn.SendDHCP(&resp, intf); err != nil {
 				l.V(0).Info("Failed to send ProxyDHCP offer", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 				return
 			}
-			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", msg), "struct", msg)
+			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", resp), "struct", resp)
 		}(pkt)
 	}
 }
 
-// isPXEPacket determines if the packet meets qualifications of a PXE request
-// 1. is a DHCP discovery or request packet
-// 2. option 93 is set
-// 3. option 97 is correct length.
-func isPXEPacket(pkt *dhcp4.Packet) error {
-	// should be a dhcp discover or request packet
-	switch pkt.Type {
-	case dhcp4.MsgDiscover, dhcp4.MsgRequest:
-		// good
-	default:
-		return fmt.Errorf("packet is %s, not %s or %s", pkt.Type, dhcp4.MsgDiscover, dhcp4.MsgRequest)
-	}
-
-	// option 93 must be set
-	if pkt.Options[93] == nil {
-		return errors.New("not a PXE boot request (missing option 93)")
-	}
-	// option 97 must be have correct length
-	guid := pkt.Options[97]
-	switch len(guid) {
-	case 0:
-		// A missing GUID is invalid according to the spec, however
-		// there are PXE ROMs in the wild that omit the GUID and still
-		// expect to boot. The only thing we do with the GUID is
-		// mirror it back to the client if it's there, so we might as
-		// well accept these buggy ROMs.
-	case 17:
-		if guid[0] != 0 {
-			return errors.New("malformed client GUID (option 97), leading byte must be zero")
-		}
-	default:
-		return errors.New("malformed client GUID (option 97), wrong size")
-	}
-
-	return nil
-}
-
-// processMachine reads a dhcp packet and populates a machine struct.
 func processMachine(pkt *dhcp4.Packet) (machine, error) {
 	mach := machine{}
 	fwt, err := pkt.Options.Uint16(93)
@@ -142,7 +129,6 @@ func processMachine(pkt *dhcp4.Packet) (machine, error) {
 		mach.uClass = UserClass(userClass)
 	}
 	mach.mac = pkt.HardwareAddr
-	fmt.Printf("%+v\n", mach)
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
 	// https://www.rfc-editor.org/errata_search.php?rfc=4578
@@ -180,64 +166,115 @@ func processMachine(pkt *dhcp4.Packet) (machine, error) {
 	case 19:
 		mach.arch = EFIAARCH64Http
 	default:
-		fmt.Printf("%+v\n", mach)
-		return mach, fmt.Errorf("unsupported client firmware type '%d' (please file a bug!)", fwt)
+		return mach, fmt.Errorf("unsupported client firmware type '%d' for %v (please file a bug!)", fwt, mach.mac)
 	}
 
 	return mach, nil
 }
 
-// createMSG returns a dhcp packet.
-func createMSG(_ context.Context, pkt *dhcp4.Packet, mach machine) (*dhcp4.Packet, error) {
-	resp := &dhcp4.Packet{
-		Type:          dhcp4.MsgOffer,
-		TransactionID: pkt.TransactionID,
-		Broadcast:     true,
-		HardwareAddr:  mach.mac,
-		RelayAddr:     pkt.RelayAddr,
-		Options:       make(dhcp4.Options),
-	}
-
-	// says the server should identify itself as a PXEClient vendor
-	// type, even though it's a server. Strange.
-	resp.Options[dhcp4.OptVendorIdentifier] = []byte("PXEClient")
-	if pkt.Options[97] != nil {
-		resp.Options[97] = pkt.Options[97]
-	}
-	// This is completely standard PXE: we tell the PXE client to
-	// bypass all the boot discovery rubbish that PXE supports,
-	// and just load a file from TFTP.
-	pxe := dhcp4.Options{
-		// PXE Boot Server Discovery Control - bypass, just boot from filename.
-		6: []byte{8},
-	}
-	bs, err := pxe.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize PXE Boot Server Discovery Control: %w", err)
-	}
-	resp.Options[43] = bs
-
-	return resp, nil
+// withHeaderCiaddr adds the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
+// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
+func withHeaderSiaddr(pkt dhcp4.Packet, siaddr net.IP) dhcp4.Packet {
+	pkt.ServerAddr = siaddr
+	return pkt
 }
 
-// bootOpts updates a DHCP packet with values for options 54, 66, & 67.
-func bootOpts(ctx context.Context, msg dhcp4.Packet, mach machine, loc Locator, serverIP string) (*dhcp4.Packet, error) {
-	var err error
-	msg.BootFilename, msg.BootServerName, err = loc.Locate(ctx, mach.mac, mach.uClass, mach.arch)
+func withHeaderCiaddr(pkt dhcp4.Packet) dhcp4.Packet {
+	pkt.ServerAddr = net.IP{0, 0, 0, 0} // does it need tobe null?
+	return pkt
+}
+
+func withHeaderSname(pkt dhcp4.Packet, sn string) dhcp4.Packet {
+	pkt.BootServerName = sn
+	return pkt
+}
+
+func withHeaderBfilename(pkt dhcp4.Packet, bf string) dhcp4.Packet {
+	pkt.BootFilename = bf
+	return pkt
+}
+
+// withGenericHeaders updates a dhcp packet with the required dhcp headers.
+func withGenericHeaders(pkt dhcp4.Packet, tID []byte, mac net.HardwareAddr, rAddr net.IP) dhcp4.Packet {
+	pkt.TransactionID = tID
+	pkt.Broadcast = true
+	pkt.HardwareAddr = mac
+	pkt.RelayAddr = rAddr
+
+	return pkt
+}
+
+func withOpt97(pkt dhcp4.Packet, guid []byte) dhcp4.Packet {
+	if guid != nil {
+		pkt.Options[97] = guid
+	}
+
+	return pkt
+}
+
+func setOpt60(pkt dhcp4.Packet, c clientType) dhcp4.Packet {
+	// The PXE spec says the server should identify itself as a PXEClient or HTTPClient
+	pkt.Options[dhcp4.OptVendorIdentifier] = []byte(c)
+
+	return pkt
+}
+
+var (
+	defaults = map[Architecture]string{
+		X86PC:           "undionly.kpxe",
+		NecPC98:         "undionly.kpxe",
+		EFIItanium:      "undionly.kpxe",
+		DecAlpha:        "undionly.kpxe",
+		Arcx86:          "undionly.kpxe",
+		IntelLeanClient: "undionly.kpxe",
+		EFIIA32:         "ipxe.efi",
+		EFIx8664:        "ipxe.efi",
+		EFIXscale:       "ipxe.efi",
+		EFIBC:           "ipxe.efi",
+		EFIARM:          "snp.efi",
+		EFIAARCH64:      "snp.efi",
+	}
+	defaultsHTTP = map[Architecture]string{
+		EFIx86Http:     "http://%v/ipxe.efi",
+		EFIx8664Http:   "http://%v/ipxe.efi",
+		EFIARMHttp:     "http://%v/snp.efi",
+		EFIAARCH64Http: "http://%v/snp.efi",
+	}
+)
+
+// setOpt43 is completely standard PXE: we tell the PXE client to
+// bypass all the boot discovery rubbish that PXE supports,
+// and just load a file from TFTP.
+func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
+	pxe := dhcp4.Options{
+		// PXE Boot Server Discovery Control - bypass, just boot from filename.
+		6: []byte{8}, // or []byte{8}
+	}
+	// Raspberry PI's need options 9 and 10 of parent option 43.
+	// The best way at the moment to figure out if a DHCP request is coming from a Raspberry PI is to
+	// check the MAC address. We could reach out to some external server to tell us if the MAC address should
+	// use these extra Raspberry PI options but that would require a dependency on some external service and all the trade-offs that
+	// come with that. TODO: provide doc link for why these options are needed.
+	// https://udger.com/resources/mac-address-vendor-detail?name=raspberry_pi_foundation
+	if strings.HasPrefix(strings.ToLower(m.String()), strings.ToLower("B8:27:EB")) ||
+		strings.HasPrefix(strings.ToLower(m.String()), strings.ToLower("DC:A6:32")) ||
+		strings.HasPrefix(strings.ToLower(m.String()), strings.ToLower("E4:5F:01")) {
+		// TODO document what these hex strings are and why they are needed.
+		// https://www.raspberrypi.org/documentation/computers/raspberry-pi.html#PXE_OPTION43
+		// tested with Raspberry Pi 4 using UEFI from here: https://github.com/pftf/RPi4/releases/tag/v1.31
+		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74")
+		opt10, _ := hex.DecodeString("00505845")
+		pxe[9] = opt9
+		pxe[10] = opt10
+	}
+
+	bs, err := pxe.Marshal()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to locate boot file")
+		return dhcp4.Packet{}, fmt.Errorf("failed to serialize PXE Boot Server Discovery Control: %w", err)
 	}
-	if msg.BootServerName != "" {
-		i, _ := netaddr.ParseIP(msg.BootServerName)
-		if i.Is4() {
-			msg.ServerAddr = i.IPAddr().IP // this needs match the BootServerName where ipxe binaries or scripts are hosted
-			msg.Options[dhcp4.OptServerIdentifier] = i.IPAddr().IP
-		}
-	} else {
-		a, _ := netaddr.ParseIP(serverIP) // if the Bootfilename is a full URL, then the ServerAddr can be any arbitrary IP excepct 0.0.0.0 or nil.
-		msg.ServerAddr = a.IPAddr().IP
-	}
-	return &msg, nil
+	msg.Options[43] = bs
+	//msg.Options[43] = []byte{"Raspberry Pi Boot   "}
+	return msg, nil
 }
 
 func interfaceIP(intf *net.Interface) net.IP {
@@ -268,6 +305,115 @@ func interfaceIP(intf *net.Interface) net.IP {
 				return ip
 			}
 		}
+	}
+
+	return nil
+}
+
+// isDiscoverPXEPacket determines if the DHCP packet meets qualifications of a being a PXE enabled client.
+// 1. is a DHCP discovery
+// 2. option 93 is set
+// 3. option 94 is set
+// 4. option 97 is correct length.
+// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz"
+// 6. option 55 is set; only warn if not set
+// 7. options 128-135 are set; only warn if not set
+func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
+	// should only be a dhcp discover because a request packet has different requirements
+	if pkt.Type != dhcp4.MsgDiscover {
+		return fmt.Errorf("DHCP message type is %s, must be %s", pkt.Type, dhcp4.MsgDiscover)
+	}
+	// option 55 must be set
+	if pkt.Options[55] == nil {
+		// just warn for the moment because we don't actually do anything with this option
+		fmt.Println("warning: missing option 55")
+	}
+	// option 60 must be set
+	if opt60 := pkt.Options[60]; opt60 == nil {
+		return errors.New("not a PXE boot request (missing option 60)")
+	}
+	// option 60 must start with PXEClient
+	if !strings.HasPrefix(string(pkt.Options[60]), "PXEClient") && !strings.HasPrefix(string(pkt.Options[60]), "HTTPClient") {
+		return fmt.Errorf("not a PXE boot request (option 60 does not start with PXEClient: %v)", string(pkt.Options[60]))
+	}
+	// option 93 must be set
+	if pkt.Options[93] == nil {
+		return errors.New("not a PXE boot request (missing option 93)")
+	}
+	// option 93 must be set
+	if pkt.Options[94] == nil {
+		return errors.New("not a PXE boot request (missing option 94)")
+	}
+	// option 97 must be have correct length or not be set
+	guid := pkt.Options[97]
+	switch len(guid) {
+	case 0:
+		// A missing GUID is invalid according to the spec, however
+		// there are PXE ROMs in the wild that omit the GUID and still
+		// expect to boot. The only thing we do with the GUID is
+		// mirror it back to the client if it's there, so we might as
+		// well accept these buggy ROMs.
+	case 17:
+		if guid[0] != 0 {
+			return errors.New("malformed client GUID (option 97), leading byte must be zero")
+		}
+	default:
+		return errors.New("malformed client GUID (option 97), wrong size")
+	}
+	// options 128-135 must be set but just warn for now as we're not using them
+	// these show up as required in https://www.rfc-editor.org/rfc/rfc4578.html#section-2.4
+	for i := 128; i <= 135; i++ {
+		v := pkt.Options[dhcp4.Option(i)]
+		if v == nil {
+			fmt.Printf("warning: missing option %d\n", i)
+		}
+	}
+
+	return nil
+}
+
+// isRequestPXEPacket determines if the DHCP packet meets qualifications of a being a PXE enabled client.
+// 1. is a DHCP discovery
+// 2. option 93 is set
+// 3. option 94 is set
+// 4. option 97 is correct length.
+// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz"
+func isRequestPXEPacket(pkt *dhcp4.Packet) error {
+	// should only be a dhcp request messsage type because a discover message type has different requirements
+	if pkt.Type != dhcp4.MsgRequest {
+		return fmt.Errorf("DHCP message type is %s, must be %s", pkt.Type, dhcp4.MsgRequest)
+	}
+	// option 60 must be set
+	if opt60 := pkt.Options[60]; opt60 == nil {
+		return errors.New("not a PXE boot request (missing option 60)")
+	}
+	// option 60 must start with PXEClient
+	if !strings.HasPrefix(string(pkt.Options[60]), string(pxeClient)) && !strings.HasPrefix(string(pkt.Options[60]), string(httpClient)) {
+		return errors.New("not a PXE boot request (option 60 does not start with PXEClient)")
+	}
+	// option 93 must be set
+	if pkt.Options[93] == nil {
+		return errors.New("not a PXE boot request (missing option 93)")
+	}
+	// option 93 must be set
+	if pkt.Options[94] == nil {
+		return errors.New("not a PXE boot request (missing option 94)")
+	}
+	// option 97 must be have correct length or not be set
+	guid := pkt.Options[97]
+	switch len(guid) {
+	case 0:
+		// A missing GUID is invalid according to the spec, however
+		// there are PXE ROMs in the wild that omit the GUID and still
+		// expect to boot. The only thing we do with the GUID is
+		// mirror it back to the client if it's there, so we might as
+		// well accept these buggy ROMs.
+	case 17:
+		if guid[0] != 0 {
+			return errors.New("malformed client GUID (option 97), leading byte must be zero")
+		}
+	default:
+		return errors.New("malformed client GUID (option 97), wrong size")
 	}
 
 	return nil

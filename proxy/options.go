@@ -8,6 +8,14 @@ type Architecture int
 // UserClass is DHCP option 77 (https://www.rfc-editor.org/rfc/rfc3004.html).
 type UserClass string
 
+// clientType is from DHCP option 60. Normally on PXEClient or HTTPClient.
+type clientType string
+
+const (
+	pxeClient  clientType = "PXEClient"
+	httpClient clientType = "HTTPClient"
+)
+
 // known user-class types. must correspond to DHCP option 77 - User-Class
 // https://www.rfc-editor.org/rfc/rfc3004.html
 const (

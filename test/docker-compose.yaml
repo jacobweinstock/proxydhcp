@@ -1,25 +1,5 @@
 services:
-  #dhcp:
-  # image: networkboot/dhcpd
-  # network_mode: host
-  # command: ["enp0s8"]
-  # volumes:
-  #   - ${PWD}/dhcpd.conf:/data/dhcpd.conf
-
   proxydhcp:
     build: ../
     network_mode: host
-    command: ["file", "-path", "/backend-file.yaml"]
-    volumes:
-       #- ${PWD}/../examples/backend-file.yaml:/backend-file.yaml
-       - /home/ubuntu/backend-file.yaml:/backend-file.yaml
-    #depends_on:
-    #  - dhcp
-
-  #dhcpclient:
-    #image: golang:1.16
-    #network_mode: host
-    # pdhcp -i eth0 -R '{"client-system": 0, "user-class": "iPXE"}' | jq
-    #command: [ "/client.sh" ]
-    #volumes:
-    #  - ${PWD}/client.sh:/client.sh
+    command: ["-http-addr", "192.168.2.109", "-tftp-addr", "192.168.2.109", "-ipxe-url", "http://192.168.2.109/auto.ipxe"]

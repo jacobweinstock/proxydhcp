@@ -1,3 +1,5 @@
+# docker build -t proxydhcp .
+# docker run -it --rm proxydhcp -tftp-addr 192.168.2.109 -http-addr 192.168.2.109 -ipxe-url http://192.168.2.109/auto.ipxe
 FROM golang:1.16 as builder
 
 WORKDIR /code
@@ -7,9 +9,10 @@ RUN go mod download
 COPY . /code
 RUN CGO_ENABLED=0 go build -o proxydhcp
 
-FROM alpine
+FROM scratch
 
 COPY --from=builder /code/proxydhcp /proxydhcp
 EXPOSE 67/udp
+EXPOSE 4011/udp
 
 ENTRYPOINT ["/proxydhcp"]

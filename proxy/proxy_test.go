@@ -80,7 +80,7 @@ func TestServe(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			g, ctx := errgroup.WithContext(ctx)
 			g.Go(func() error {
-				Serve(ctx, logger, conn, tl)
+				Serve(ctx, logger, conn)
 				return ctx.Err()
 			})
 			// send DHCP request
@@ -209,7 +209,7 @@ func TestIsPXEPacket(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := isPXEPacket(tc.input)
+			got := isDiscoverPXEPacket(tc.input)
 			if got != nil {
 				if diff := cmp.Diff(got.Error(), tc.want.Error()); diff != "" {
 					t.Fatal(diff)
@@ -379,7 +379,7 @@ func TestCreateMSG(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			pkt, err := createMSG(context.Background(), tc.inputPkt, tc.inputMach)
+			pkt, err := withGenericHeaders(context.Background(), tc.inputPkt, tc.inputMach)
 			if err != nil {
 				if tc.wantError != nil {
 					if diff := cmp.Diff(err.Error(), tc.wantError.Error()); diff != "" {

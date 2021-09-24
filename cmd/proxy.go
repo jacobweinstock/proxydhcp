@@ -4,77 +4,47 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/go-playground/validator"
-	"github.com/jacobweinstock/proxydhcp/cmd/file"
-	"github.com/jacobweinstock/proxydhcp/cmd/root"
+	"github.com/go-playground/validator/v10"
+	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.universe.tf/netboot/dhcp4"
 )
 
-type Root struct {
-	Config config
+const appName = "proxydhcp"
+
+type config struct {
+	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
+	TftpAddr        string `vname:"-tftp-addr" validate:"required,url"`
+	HttpAddr        string `vname:"-http-addr" validate:"required,url"`
+	IPXEURL         string `vname:"-ipxe-url" validate:"required,url"`
+	Addr            string `vname:"-addr" validate:"hostname_port"`
+	CustomUserClass string
+	Log             logr.Logger
 }
 
-type config struct{}
-
 func Execute(ctx context.Context) error {
-	var (
-		rootCmd, rootConfig = root.New()
-		fileCmd             = file.New(rootConfig)
-		// tinkCmd             = tinkerbell.New(rootConfig)
-		// kubeCmd             = kube.New(rootConfig)
-	)
 
-	rootCmd.Subcommands = []*ffcli.Command{fileCmd /*tinkCmd, kubeCmd*/}
+	rootCmd, rootConfig := New()
+
 	if err := rootCmd.Parse(os.Args[1:]); err != nil {
 		return err
 	}
-	if err := validator.New().Struct(rootConfig); err != nil {
-		return err
-	}
+
 	rootConfig.Log = defaultLogger(rootConfig.LogLevel)
 
 	return rootCmd.Run(ctx)
-}
-
-// Execute sets up the config and logging, then runs the proxydhcp Server.
-func Execute2(ctx context.Context) error {
-	fs := flag.NewFlagSet("proxydhcp", flag.ExitOnError)
-	addr := fs.String("addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
-	ll := fs.String("loglevel", "info", "log level")
-	// ip := fs.String("ip", "", "IP to use for the proxydhcp server.")
-	err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("PROXYDHCP"))
-	if err != nil {
-		return err
-	}
-
-	log := defaultLogger(*ll)
-
-	listener, err := newListener(*addr)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-		log.V(0).Info("shutting down proxydhcp", "addr", *addr)
-	}()
-
-	log.V(0).Info("starting proxydhcp", "addr", *addr)
-	// proxy.Serve will block until the context (ctx) is canceled .
-	// proxy.Serve(ctx, log, listener, app.Default{IP: net.ParseIP(*ip)})
-
-	return nil
 }
 
 // defaultLogger is zap logr implementation.
@@ -115,4 +85,95 @@ func formatAddr(s string) string {
 		return "0.0.0.0" + s
 	}
 	return s
+}
+
+func New() (*ffcli.Command, *config) {
+	var cfg config
+
+	fs := flag.NewFlagSet(appName, flag.ExitOnError)
+	cfg.RegisterFlags(fs)
+
+	return &ffcli.Command{
+		ShortUsage: "proxydhcp [flags] <subcommand>",
+		FlagSet:    fs,
+		Options: []ff.Option{
+			ff.WithEnvVarPrefix(strings.ToUpper(appName)),
+			ff.WithAllowMissingConfigFile(true),
+			ff.WithIgnoreUndefined(true),
+		},
+		Exec: cfg.Exec,
+	}, &cfg
+}
+
+func (c *config) RegisterFlags(fs *flag.FlagSet) {
+	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
+	fs.StringVar(&c.Addr, "addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
+	fs.StringVar(&c.TftpAddr, "tftp-addr", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
+	fs.StringVar(&c.HttpAddr, "http-addr", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
+	fs.StringVar(&c.IPXEURL, "ipxe-url", "", "A full url to an iPXE script (i.e. http://192.168.2.3/auto.ipxe).")
+	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
+}
+
+func (c *config) validateConfig() error {
+	v := validator.New()
+	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("vname"), ",", 2)[0]
+		if name == "-" {
+			return ""
+		}
+		return name
+	})
+	if err := v.Struct(c); err != nil {
+		var errMsg []string
+		//s := "'%v' is not a valid for flag %v\n"
+		for _, msg := range err.(validator.ValidationErrors) {
+			errMsg = append(errMsg, fmt.Sprintf("%v '%v' not valid: '%v'", msg.Field(), msg.Value(), msg.Tag()))
+		}
+		errMsg = append(errMsg, "\n")
+		return errors.Wrap(flag.ErrHelp, strings.Join(errMsg, "\n"))
+	}
+
+	return nil
+}
+
+// Exec function for this command.
+func (c *config) Exec(ctx context.Context, _ []string) error {
+	if err := c.validateConfig(); err != nil {
+
+		return err
+	}
+
+	redirectionListener, err := proxy.NewListener(c.Addr)
+	if err != nil {
+		return err
+	}
+	defer redirectionListener.Close()
+	log := c.Log
+
+	go func() {
+		<-ctx.Done()
+		redirectionListener.Close()
+		log.V(0).Info("shutting down proxydhcp", "addr", c.Addr)
+	}()
+
+	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
+	if err != nil {
+		return err
+	}
+	defer bootListener.Close()
+	go func() {
+		<-ctx.Done()
+		bootListener.Close()
+		log.V(0).Info("shutting down proxydhcp", "addr", c.Addr)
+	}()
+	tftp, _ := url.Parse(c.TftpAddr)
+	ta := tftp.Host + tftp.Path
+	htp, _ := url.Parse(c.HttpAddr)
+	ha := htp.Host + htp.Path
+	go proxy.ServeBoot(ctx, log, bootListener, ta, ha, c.IPXEURL, c.CustomUserClass)
+
+	log.V(0).Info("starting proxydhcp", "addr1", c.Addr, "addr2", "0.0.0.0:4011")
+	// proxy.Serve will block until the context (ctx) is canceled .
+	proxy.Serve(ctx, log, redirectionListener, c.TftpAddr, c.HttpAddr, c.IPXEURL, c.CustomUserClass)
+	return nil
 }
