@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"go.universe.tf/netboot/dhcp4"
@@ -76,10 +78,38 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 
 			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
-			i, _ := netaddr.ParseIP(tftpAddr)
-			bootFileName, found := defaults[mach.arch]
+			/*
+				bootFileName, found := defaults[mach.arch]
+				if !found {
+					bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
+					resp = setOpt60(resp, httpClient)
+					ha, _ := url.Parse(httpAddr)
+					nextServer, _ := netaddr.ParseIP(ha.Host)
+					resp.Options[54] = nextServer.IPAddr().IP
+					resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+					resp = withHeaderSname(resp, nextServer.String())
+					resp = withHeaderBfilename(resp, filepath.Join(ha.Path, bootFileName))
+					l.V(0).Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
+				} else {
+					ta, _ := url.Parse(tftpAddr)
+					nextServer, _ := netaddr.ParseIP(ta.Host)
+					resp.Options[54] = nextServer.IPAddr().IP
+					resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+					resp = withHeaderSname(resp, nextServer.String())
+					resp = withHeaderBfilename(resp, filepath.Join(ta.Path, bootFileName))
+				}
+
+
+				if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
+					resp = withHeaderBfilename(resp, ipxeURL)
+				}
+			*/
+
+			fname, _ := url.Parse(tftpAddr)
+			i, _ := netaddr.ParseIP(fname.Host)
+			bootFileName, found := Defaults[mach.arch]
 			if !found {
-				bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
+				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
 				resp = setOpt60(resp, httpClient)
 				i, _ = netaddr.ParseIP(httpAddr)
 				l.V(0).Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
@@ -92,7 +122,7 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
 				resp = withHeaderBfilename(resp, ipxeURL)
 			} else {
-				resp = withHeaderBfilename(resp, bootFileName)
+				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
 			}
 
 			bs, err := resp.Marshal()

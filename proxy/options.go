@@ -1,6 +1,8 @@
 package proxy
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Architecture describes a kind of CPU architecture.
 type Architecture int

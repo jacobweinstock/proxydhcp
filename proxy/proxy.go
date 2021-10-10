@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -90,14 +92,39 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 			}
 
 			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
-
-			i, _ := netaddr.ParseIP(tftpAddr)
+/*
 			bootFileName, found := defaults[mach.arch]
 			if !found {
 				bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
 				resp = setOpt60(resp, httpClient)
-				i, _ = netaddr.ParseIP(httpAddr)
+				ha, _ := url.Parse(httpAddr)
+				nextServer, _ := netaddr.ParseIP(ha.Host)
+				resp.Options[54] = nextServer.IPAddr().IP
+				resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+				resp = withHeaderSname(resp, nextServer.String())
+				resp = withHeaderBfilename(resp, filepath.Join(ha.Path, bootFileName))
 				l.V(0).Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
+			} else {
+				ta, _ := url.Parse(tftpAddr)
+				nextServer, _ := netaddr.ParseIP(ta.Host)
+				resp.Options[54] = nextServer.IPAddr().IP
+				resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+				resp = withHeaderSname(resp, nextServer.String())
+				resp = withHeaderBfilename(resp, filepath.Join(ta.Path, bootFileName))
+			}
+
+			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
+				resp = withHeaderBfilename(resp, ipxeURL)
+			}
+*/
+			fname, _ := url.Parse(tftpAddr)
+			i, _ := netaddr.ParseIP(fname.Host)
+			bootFileName, found := Defaults[mach.arch]
+			if !found {
+				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
+				resp = setOpt60(resp, httpClient)
+				i, _ = netaddr.ParseIP(httpAddr)
+				l.V(0).Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
 			}
 
 			resp.Options[54] = i.IPAddr().IP
@@ -107,7 +134,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
 				resp = withHeaderBfilename(resp, ipxeURL)
 			} else {
-				resp = withHeaderBfilename(resp, bootFileName)
+				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
 			}
 
 			if err = conn.SendDHCP(&resp, intf); err != nil {
@@ -220,7 +247,7 @@ func setOpt60(pkt dhcp4.Packet, c clientType) dhcp4.Packet {
 }
 
 var (
-	defaults = map[Architecture]string{
+	Defaults = map[Architecture]string{
 		X86PC:           "undionly.kpxe",
 		NecPC98:         "undionly.kpxe",
 		EFIItanium:      "undionly.kpxe",
@@ -234,7 +261,7 @@ var (
 		EFIARM:          "snp.efi",
 		EFIAARCH64:      "snp.efi",
 	}
-	defaultsHTTP = map[Architecture]string{
+	DefaultsHTTP = map[Architecture]string{
 		EFIx86Http:     "http://%v/ipxe.efi",
 		EFIx8664Http:   "http://%v/ipxe.efi",
 		EFIARMHttp:     "http://%v/snp.efi",
@@ -262,6 +289,7 @@ func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 		// TODO document what these hex strings are and why they are needed.
 		// https://www.raspberrypi.org/documentation/computers/raspberry-pi.html#PXE_OPTION43
 		// tested with Raspberry Pi 4 using UEFI from here: https://github.com/pftf/RPi4/releases/tag/v1.31
+		// all files were served via a tftp server and lived at the top level dir of the tftp server (i.e tftp://server/)
 		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74")
 		opt10, _ := hex.DecodeString("00505845")
 		pxe[9] = opt9
