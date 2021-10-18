@@ -13,40 +13,40 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
-type bin struct {
+type Bin struct {
 	ffcli.Command
 	jsonOut bool
 }
 
 // Option for setting optional Client values
-type Option func(*bin)
+type Option func(*Bin)
 
 func WithName(name string) Option {
-	return func(cfg *bin) {
+	return func(cfg *Bin) {
 		cfg.Name = name
 	}
 }
 
 func WithShortUsage(shortUsage string) Option {
-	return func(cfg *bin) {
+	return func(cfg *Bin) {
 		cfg.ShortUsage = shortUsage
 	}
 }
 
 func WithUsageFunc(usageFunc func(*ffcli.Command) string) Option {
-	return func(cfg *bin) {
+	return func(cfg *Bin) {
 		cfg.UsageFunc = usageFunc
 	}
 }
 
 func WithFlagSet(flagSet *flag.FlagSet) Option {
-	return func(cfg *bin) {
+	return func(cfg *Bin) {
 		cfg.FlagSet = flagSet
 	}
 }
 
 func WithOptions(opts ...ff.Option) Option {
-	return func(cfg *bin) {
+	return func(cfg *Bin) {
 		cfg.Options = append(cfg.Options, opts...)
 	}
 }
@@ -54,7 +54,7 @@ func WithOptions(opts ...ff.Option) Option {
 func SupportedBins(ctx context.Context, opts ...Option) *ffcli.Command {
 	name := "binary"
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
-	defaultCfg := &bin{
+	defaultCfg := &Bin{
 		Command: ffcli.Command{
 			Name:       name,
 			ShortUsage: fmt.Sprintf("%v returns the mapping of architecture to ipxe binary name", name),
@@ -62,7 +62,7 @@ func SupportedBins(ctx context.Context, opts ...Option) *ffcli.Command {
 		},
 	}
 	defaultCfg.Exec = defaultCfg.Execute
-	fs.BoolVar(&defaultCfg.jsonOut, "json", false, "output in json format")
+	defaultCfg.RegisterFlags(fs)
 
 	for _, opt := range opts {
 		opt(defaultCfg)
@@ -80,8 +80,12 @@ func SupportedBins(ctx context.Context, opts ...Option) *ffcli.Command {
 	}
 }
 
+func (b *Bin) RegisterFlags(fs *flag.FlagSet) {
+	fs.BoolVar(&b.jsonOut, "json", false, "output in json format")
+}
+
 // Execute function for this command.
-func (b *bin) Execute(ctx context.Context, _ []string) error {
+func (b *Bin) Execute(ctx context.Context, _ []string) error {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"ID", "Arch", "Binary"})
 

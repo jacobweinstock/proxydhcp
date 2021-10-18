@@ -18,7 +18,7 @@ import (
 
 const appName = "proxy"
 
-type config struct {
+type Config struct {
 	ffcli.Command
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
 	TftpAddr        string `vname:"-tftp-addr" validate:"required,url"`
@@ -30,50 +30,56 @@ type config struct {
 }
 
 // Option for setting optional Client values
-type ProxyOption func(*config)
+type ProxyOption func(*Config)
 
 func ProxyWithName(name string) ProxyOption {
-	return func(cfg *config) {
+	return func(cfg *Config) {
 		cfg.Name = name
 	}
 }
 
 func ProxyWithShortUsage(shortUsage string) ProxyOption {
-	return func(cfg *config) {
+	return func(cfg *Config) {
 		cfg.ShortUsage = shortUsage
 	}
 }
 
 func ProxyWithUsageFunc(usageFunc func(*ffcli.Command) string) ProxyOption {
-	return func(cfg *config) {
+	return func(cfg *Config) {
 		cfg.UsageFunc = usageFunc
 	}
 }
 
 func ProxyWithFlagSet(flagSet *flag.FlagSet) ProxyOption {
-	return func(cfg *config) {
+	return func(cfg *Config) {
 		cfg.FlagSet = flagSet
 	}
 }
 
 func ProxyWithOptions(opts ...ff.Option) ProxyOption {
-	return func(cfg *config) {
+	return func(cfg *Config) {
 		cfg.Options = append(cfg.Options, opts...)
 	}
 }
 
-func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *config) {
+func ProxyWithLogger(l logr.Logger) ProxyOption {
+	return func(cfg *Config) {
+		cfg.Log = l
+	}
+}
+
+func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
-	cfg := &config{
+	cfg := &Config{
 		Command: ffcli.Command{
-			Name:        appName,
-			ShortUsage:  fmt.Sprintf("%v runs the proxyDHCP server", appName),
-			FlagSet:     fs,
+			Name:       appName,
+			ShortUsage: fmt.Sprintf("%v runs the proxyDHCP server", appName),
+			FlagSet:    fs,
 		},
+		Log: logr.Discard(),
 	}
 
-	//
-	cfg.RegisterFlags(fs)
+	RegisterFlags(cfg, fs)
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -91,7 +97,7 @@ func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *confi
 	}, cfg
 }
 
-func (c *config) RegisterFlags(fs *flag.FlagSet) {
+func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
 	fs.StringVar(&c.Addr, "addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
 	fs.StringVar(&c.TftpAddr, "tftp-addr", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
@@ -100,7 +106,7 @@ func (c *config) RegisterFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
 }
 
-func (c *config) validateConfig() error {
+func (c *Config) ValidateConfig() error {
 	v := validator.New()
 	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
 		name := strings.SplitN(fld.Tag.Get("vname"), ",", 2)[0]
@@ -123,12 +129,16 @@ func (c *config) validateConfig() error {
 }
 
 // Exec function for this command.
-func (c *config) Exec(ctx context.Context, _ []string) error {
-	if err := c.validateConfig(); err != nil {
+func (c *Config) Exec(ctx context.Context, args []string) error {
+	if err := c.ValidateConfig(); err != nil {
 
 		return err
 	}
 
+	return c.Run(ctx, args)
+}
+
+func (c *Config) Run(ctx context.Context, _ []string) error {
 	redirectionListener, err := proxy.NewListener(c.Addr)
 	if err != nil {
 		return err
