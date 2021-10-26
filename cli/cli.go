@@ -19,7 +19,7 @@ import (
 const appName = "proxy"
 
 type Config struct {
-	ffcli.Command
+	Command         ffcli.Command
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
 	TftpAddr        string `vname:"-tftp-addr" validate:"required,url"`
 	HttpAddr        string `vname:"-http-addr" validate:"required,url"`
@@ -34,31 +34,31 @@ type ProxyOption func(*Config)
 
 func ProxyWithName(name string) ProxyOption {
 	return func(cfg *Config) {
-		cfg.Name = name
+		cfg.Command.Name = name
 	}
 }
 
 func ProxyWithShortUsage(shortUsage string) ProxyOption {
 	return func(cfg *Config) {
-		cfg.ShortUsage = shortUsage
+		cfg.Command.ShortUsage = shortUsage
 	}
 }
 
 func ProxyWithUsageFunc(usageFunc func(*ffcli.Command) string) ProxyOption {
 	return func(cfg *Config) {
-		cfg.UsageFunc = usageFunc
+		cfg.Command.UsageFunc = usageFunc
 	}
 }
 
 func ProxyWithFlagSet(flagSet *flag.FlagSet) ProxyOption {
 	return func(cfg *Config) {
-		cfg.FlagSet = flagSet
+		cfg.Command.FlagSet = flagSet
 	}
 }
 
 func ProxyWithOptions(opts ...ff.Option) ProxyOption {
 	return func(cfg *Config) {
-		cfg.Options = append(cfg.Options, opts...)
+		cfg.Command.Options = append(cfg.Command.Options, opts...)
 	}
 }
 
@@ -71,12 +71,13 @@ func ProxyWithLogger(l logr.Logger) ProxyOption {
 func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
 	cfg := &Config{
+		Log:  logr.Discard(),
+		Addr: "0.0.0.0:67",
 		Command: ffcli.Command{
 			Name:       appName,
 			ShortUsage: fmt.Sprintf("%v runs the proxyDHCP server", appName),
 			FlagSet:    fs,
 		},
-		Log: logr.Discard(),
 	}
 
 	RegisterFlags(cfg, fs)
@@ -85,14 +86,14 @@ func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *Confi
 	}
 
 	return &ffcli.Command{
-		Name:        cfg.Name,
-		ShortUsage:  cfg.ShortHelp,
-		ShortHelp:   cfg.ShortHelp,
-		LongHelp:    cfg.LongHelp,
-		UsageFunc:   cfg.UsageFunc,
-		FlagSet:     cfg.FlagSet,
-		Options:     cfg.Options,
-		Subcommands: cfg.Subcommands,
+		Name:        cfg.Command.Name,
+		ShortUsage:  cfg.Command.ShortHelp,
+		ShortHelp:   cfg.Command.ShortHelp,
+		LongHelp:    cfg.Command.LongHelp,
+		UsageFunc:   cfg.Command.UsageFunc,
+		FlagSet:     cfg.Command.FlagSet,
+		Options:     cfg.Command.Options,
+		Subcommands: cfg.Command.Subcommands,
 		Exec:        cfg.Exec,
 	}, cfg
 }
