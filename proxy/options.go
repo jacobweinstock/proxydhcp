@@ -30,7 +30,7 @@ const (
 	// chainloaded this client to the full-featured copy of iPXE
 	// we supply. We have to distinguish this case so we don't
 	// loop on the chainload step.
-	Tinkerbell UserClass = "tinkerbell"
+	Tinkerbell UserClass = "Tinkerbell"
 )
 
 // known architecture types. must correspond to DHCP option 93 - Client System Architecture

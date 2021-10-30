@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/jacobweinstock/proxydhcp/proxy"
@@ -18,7 +21,7 @@ type Bin struct {
 	jsonOut bool
 }
 
-// Option for setting optional Client values
+// Option for setting optional Client values.
 type Option func(*Bin)
 
 func WithName(name string) Option {
@@ -51,13 +54,13 @@ func WithOptions(opts ...ff.Option) Option {
 	}
 }
 
-func SupportedBins(ctx context.Context, opts ...Option) *ffcli.Command {
+func SupportedBins(_ context.Context, opts ...Option) *ffcli.Command {
 	name := "binary"
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	defaultCfg := &Bin{
 		Command: ffcli.Command{
 			Name:       name,
-			ShortUsage: fmt.Sprintf("%v returns the mapping of architecture to ipxe binary name", name),
+			ShortUsage: fmt.Sprintf("%v returns the mapping of supported architecture to ipxe binary name", name),
 			FlagSet:    fs,
 		},
 	}
@@ -85,18 +88,67 @@ func (b *Bin) RegisterFlags(fs *flag.FlagSet) {
 }
 
 // Execute function for this command.
-func (b *Bin) Execute(ctx context.Context, _ []string) error {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Arch", "Binary"})
-
-	for arch, ipxe := range proxy.Defaults {
-		table.Append([]string{strconv.Itoa(int(arch)), arch.String(), ipxe})
+func (b *Bin) Execute(_ context.Context, _ []string) error {
+	if b.jsonOut {
+		jsonOut(os.Stdout)
+	} else {
+		table(os.Stdout)
 	}
-	for arch, ipxe := range proxy.DefaultsHTTP {
-		table.Append([]string{strconv.Itoa(int(arch)), arch.String(), fmt.Sprintf(ipxe, "<your-ip>")})
-	}
-	table.Render()
-	fmt.Println(b.jsonOut)
 
 	return nil
+}
+
+func jsonOut(w io.Writer) {
+	type spec struct {
+		ID     int    `json:"id"`
+		Arch   string `json:"arch"`
+		Binary string `json:"binary"`
+	}
+	output := make([]spec, 0)
+	for arch, ipxe := range proxy.Defaults {
+		output = append(output, spec{
+			ID:     int(arch),
+			Arch:   arch.String(),
+			Binary: ipxe,
+		})
+	}
+	for arch, ipxe := range proxy.DefaultsHTTP {
+		output = append(output, spec{
+			ID:     int(arch),
+			Arch:   arch.String(),
+			Binary: fmt.Sprintf(ipxe, "<IP>"),
+		})
+	}
+	out, err := json.Marshal(output)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Fprintln(w, string(out))
+}
+
+func table(w io.Writer) {
+	table := tablewriter.NewWriter(w)
+	table.SetHeader([]string{"ID", "Arch", "Binary"})
+
+	var unsortedDefaults []int
+	for arch := range proxy.Defaults {
+		unsortedDefaults = append(unsortedDefaults, int(arch))
+	}
+	sort.Ints(unsortedDefaults)
+	for _, elem := range unsortedDefaults {
+		ipxe := proxy.Defaults[proxy.Architecture(elem)]
+		table.Append([]string{strconv.Itoa(elem), proxy.Architecture(elem).String(), ipxe})
+	}
+
+	var unsortedDefaultsHTTP []int
+	for arch := range proxy.DefaultsHTTP {
+		unsortedDefaultsHTTP = append(unsortedDefaultsHTTP, int(arch))
+	}
+	sort.Ints(unsortedDefaultsHTTP)
+	for _, elem := range unsortedDefaultsHTTP {
+		ipxe := proxy.DefaultsHTTP[proxy.Architecture(elem)]
+		table.Append([]string{strconv.Itoa(elem), proxy.Architecture(elem).String(), fmt.Sprintf(ipxe, "<IP>")})
+	}
+
+	table.Render()
 }

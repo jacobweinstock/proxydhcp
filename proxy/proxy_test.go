@@ -66,7 +66,7 @@ func TestServe(t *testing.T) {
 	}{
 		"context canceled": {input: "127.0.0.1:60656", want: context.Canceled},
 	}
-	tl := testLocator{ip: "127.0.0.1"}
+	//tl := testLocator{ip: "127.0.0.1"}
 
 	logger := defaultLogger()
 

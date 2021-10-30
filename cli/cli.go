@@ -21,15 +21,15 @@ const appName = "proxy"
 type Config struct {
 	Command         ffcli.Command
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
-	TftpAddr        string `vname:"-tftp-addr" validate:"required,url"`
-	HttpAddr        string `vname:"-http-addr" validate:"required,url"`
+	TFTPAddr        string `vname:"-tftp-addr" validate:"required,url"`
+	HTTPAddr        string `vname:"-http-addr" validate:"required,url"`
 	IPXEURL         string `vname:"-ipxe-url" validate:"required,url"`
 	Addr            string `vname:"-addr" validate:"hostname_port"`
 	CustomUserClass string
 	Log             logr.Logger
 }
 
-// Option for setting optional Client values
+// Option for setting optional Client values.
 type ProxyOption func(*Config)
 
 func ProxyWithName(name string) ProxyOption {
@@ -68,7 +68,7 @@ func ProxyWithLogger(l logr.Logger) ProxyOption {
 	}
 }
 
-func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *Config) {
+func ProxyDHCP(_ context.Context, opts ...ProxyOption) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
 	cfg := &Config{
 		Log:  logr.Discard(),
@@ -94,15 +94,15 @@ func ProxyDHCP(ctx context.Context, opts ...ProxyOption) (*ffcli.Command, *Confi
 		FlagSet:     cfg.Command.FlagSet,
 		Options:     cfg.Command.Options,
 		Subcommands: cfg.Command.Subcommands,
-		Exec:        cfg.Exec,
+		Exec:        cfg.exec,
 	}, cfg
 }
 
 func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
 	fs.StringVar(&c.Addr, "addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
-	fs.StringVar(&c.TftpAddr, "tftp-addr", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
-	fs.StringVar(&c.HttpAddr, "http-addr", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
+	fs.StringVar(&c.TFTPAddr, "tftp-addr", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
+	fs.StringVar(&c.HTTPAddr, "http-addr", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
 	fs.StringVar(&c.IPXEURL, "ipxe-url", "", "A full url to an iPXE script (i.e. http://192.168.2.3/auto.ipxe).")
 	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
 }
@@ -118,7 +118,7 @@ func (c *Config) ValidateConfig() error {
 	})
 	if err := v.Struct(c); err != nil {
 		var errMsg []string
-		//s := "'%v' is not a valid for flag %v\n"
+		// s := "'%v' is not a valid for flag %v\n"
 		for _, msg := range err.(validator.ValidationErrors) {
 			errMsg = append(errMsg, fmt.Sprintf("%v '%v' not valid: '%v'", msg.Field(), msg.Value(), msg.Tag()))
 		}
@@ -129,10 +129,9 @@ func (c *Config) ValidateConfig() error {
 	return nil
 }
 
-// Exec function for this command.
-func (c *Config) Exec(ctx context.Context, args []string) error {
+// exec function for this command.
+func (c *Config) exec(ctx context.Context, args []string) error {
 	if err := c.ValidateConfig(); err != nil {
-
 		return err
 	}
 
@@ -150,7 +149,7 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	go func() {
 		<-ctx.Done()
 		redirectionListener.Close()
-		log.V(0).Info("shutting down proxydhcp", "addr", c.Addr)
+		log.Info("shutting down proxydhcp", "addr", c.Addr)
 	}()
 
 	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
@@ -161,12 +160,12 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	go func() {
 		<-ctx.Done()
 		bootListener.Close()
-		log.V(0).Info("shutting down proxydhcp", "addr", c.Addr)
+		log.Info("shutting down proxydhcp", "addr", c.Addr)
 	}()
-	go proxy.ServeBoot(ctx, log, bootListener, c.TftpAddr, c.HttpAddr, c.IPXEURL, c.CustomUserClass)
+	go proxy.ServeBoot(ctx, log, bootListener, c.TFTPAddr, c.HTTPAddr, c.IPXEURL, c.CustomUserClass)
 
-	log.V(0).Info("starting proxydhcp", "addr1", c.Addr, "addr2", "0.0.0.0:4011")
+	log.Info("starting proxydhcp", "addr1", c.Addr, "addr2", "0.0.0.0:4011")
 	// proxy.Serve will block until the context (ctx) is canceled .
-	proxy.Serve(ctx, log, redirectionListener, c.TftpAddr, c.HttpAddr, c.IPXEURL, c.CustomUserClass)
+	proxy.Serve(ctx, log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEURL, c.CustomUserClass)
 	return nil
 }

@@ -33,15 +33,15 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 		buf := make([]byte, 1024)
 		n, msg, addr, err := listener.ReadFrom(buf)
 		if err != nil {
-			l.V(0).Info("Error Receiving packet:", "err", err)
+			l.Info("Error Receiving packet:", "err", err)
 			continue
 		}
 		pkt, err := dhcp4.Unmarshal(buf[:n])
 		if err != nil {
-			l.V(0).Info("Packet is not a DHCP packet", "addr", addr, "err", err)
+			l.Info("Packet is not a DHCP packet", "addr", addr, "err", err)
 			continue
 		}
-
+		l.Info("Received DHCP packet", "addr", addr, "msg", msg)
 		go func(pkt *dhcp4.Packet) {
 			resp := dhcp4.Packet{
 				Options: make(dhcp4.Options),
@@ -49,47 +49,47 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 			switch pkt.Type {
 			case dhcp4.MsgRequest:
 				if err = isRequestPXEPacket(pkt); err != nil {
-					l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+					l.Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 					return
 				}
 				// dhcp request packets should be answered with a dhcp ack
 				resp.Type = dhcp4.MsgAck
 			default:
-				l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr)
+				l.Info("Ignoring packet", "hwaddr", pkt.HardwareAddr)
 				return
 			}
 
 			// TODO add link to intel spec for this needing to be set
-			resp, err = setOpt43(resp, pkt.HardwareAddr)
+			resp, err = opt43(resp, pkt.HardwareAddr)
 			if err != nil {
-				l.V(0).Info("error setting opt 43", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+				l.Info("error setting opt 43", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 			}
 
 			resp = withGenericHeaders(resp, pkt.TransactionID, pkt.HardwareAddr, pkt.RelayAddr)
-			resp = setOpt60(resp, pxeClient)
+			resp = opt60(resp, pxeClient)
 			resp = withOpt97(resp, pkt.Options[97])
 			resp = withHeaderCiaddr(resp)
 
 			mach, err := processMachine(pkt)
 			if err != nil {
-				l.V(0).Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
+				l.Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
 				return
 			}
 
-			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
+			l.Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
 			/*
 				bootFileName, found := defaults[mach.arch]
 				if !found {
 					bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
-					resp = setOpt60(resp, httpClient)
+					resp = opt60(resp, httpClient)
 					ha, _ := url.Parse(httpAddr)
 					nextServer, _ := netaddr.ParseIP(ha.Host)
 					resp.Options[54] = nextServer.IPAddr().IP
 					resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
 					resp = withHeaderSname(resp, nextServer.String())
 					resp = withHeaderBfilename(resp, filepath.Join(ha.Path, bootFileName))
-					l.V(0).Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
+					l.Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
 				} else {
 					ta, _ := url.Parse(tftpAddr)
 					nextServer, _ := netaddr.ParseIP(ta.Host)
@@ -110,9 +110,9 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 			bootFileName, found := Defaults[mach.arch]
 			if !found {
 				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
-				resp = setOpt60(resp, httpClient)
+				resp = opt60(resp, httpClient)
 				i, _ = netaddr.ParseIP(httpAddr)
-				l.V(0).Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
+				l.Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
 			}
 
 			resp.Options[54] = i.IPAddr().IP
@@ -127,16 +127,16 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 
 			bs, err := resp.Marshal()
 			if err != nil {
-				l.V(0).Info("Failed to marshal PXE offer for %s (%s): %s", pkt.HardwareAddr, addr, err)
+				l.Info("Failed to marshal PXE offer for %s (%s): %s", pkt.HardwareAddr, addr, err)
 				return
 			}
 
 			if _, err := listener.WriteTo(bs, &ipv4.ControlMessage{
 				IfIndex: msg.IfIndex,
 			}, addr); err != nil {
-				l.V(0).Info("PXE", "Failed to send PXE response", "pkt.HardwareAddr", pkt.HardwareAddr, "addr", addr, "err", err)
+				l.Info("PXE", "Failed to send PXE response", "pkt.HardwareAddr", pkt.HardwareAddr, "addr", addr, "err", err)
 			}
-			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", resp), "struct", resp)
+			l.Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", resp), "struct", resp)
 		}(pkt)
 	}
 }

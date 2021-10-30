@@ -41,11 +41,11 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 		// RecvDHCP is a blocking call
 		pkt, intf, err := conn.RecvDHCP()
 		if err != nil {
-			l.V(0).Info("Error receiving DHCP packet", "err", err.Error())
+			l.Info("Error receiving DHCP packet", "err", err.Error())
 			continue
 		}
 		if intf == nil {
-			l.V(0).Info("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract, please file a bug)")
+			l.Info("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract, please file a bug)")
 			continue
 		}
 
@@ -56,7 +56,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 			switch pkt.Type {
 			case dhcp4.MsgDiscover:
 				if err = isDiscoverPXEPacket(pkt); err != nil {
-					l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+					l.Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 					return
 				}
 				// dhcp discover packets should be answered with a dhcp offer
@@ -64,73 +64,81 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 
 			case dhcp4.MsgRequest:
 				if err = isRequestPXEPacket(pkt); err != nil {
-					l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+					l.Info("Ignoring packet", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 					return
 				}
 				// dhcp request packets should be answered with a dhcp ack
 				resp.Type = dhcp4.MsgAck
 			default:
-				l.V(0).Info("Ignoring packet", "hwaddr", pkt.HardwareAddr)
+				l.Info("Ignoring packet", "hwaddr", pkt.HardwareAddr)
 				return
 			}
 
 			// TODO add link to intel spec for this needing to be set
-			resp, err = setOpt43(resp, pkt.HardwareAddr)
+			resp, err = opt43(resp, pkt.HardwareAddr)
 			if err != nil {
-				l.V(0).Info("error setting opt 43", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+				l.Info("error setting opt 43", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 			}
 
 			resp = withGenericHeaders(resp, pkt.TransactionID, pkt.HardwareAddr, pkt.RelayAddr)
-			resp = setOpt60(resp, pxeClient)
+			resp = opt60(resp, pxeClient)
 			resp = withOpt97(resp, pkt.Options[97])
 			resp = withHeaderCiaddr(resp)
 
 			mach, err := processMachine(pkt)
 			if err != nil {
-				l.V(0).Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
+				l.Info("Unusable packet", "hwaddr", pkt.HardwareAddr, "error", err.Error(), "mach", mach)
 				return
 			}
 
-			l.V(0).Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
-/*
-			bootFileName, found := defaults[mach.arch]
-			if !found {
-				bootFileName = fmt.Sprintf(defaultsHTTP[mach.arch], httpAddr)
-				resp = setOpt60(resp, httpClient)
-				ha, _ := url.Parse(httpAddr)
-				nextServer, _ := netaddr.ParseIP(ha.Host)
-				resp.Options[54] = nextServer.IPAddr().IP
-				resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
-				resp = withHeaderSname(resp, nextServer.String())
-				resp = withHeaderBfilename(resp, filepath.Join(ha.Path, bootFileName))
-				l.V(0).Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
-			} else {
-				ta, _ := url.Parse(tftpAddr)
-				nextServer, _ := netaddr.ParseIP(ta.Host)
-				resp.Options[54] = nextServer.IPAddr().IP
-				resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
-				resp = withHeaderSname(resp, nextServer.String())
-				resp = withHeaderBfilename(resp, filepath.Join(ta.Path, bootFileName))
-			}
+			l.Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
-			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
-				resp = withHeaderBfilename(resp, ipxeURL)
-			}
-*/
+			/*
+				bootFileName, found := Defaults[mach.arch]
+				if !found {
+					bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
+					resp = opt60(resp, httpClient)
+					ha, _ := url.Parse(httpAddr)
+					nextServer, _ := netaddr.ParseIP(ha.Host)
+					resp.Options[54] = nextServer.IPAddr().IP
+					resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+					resp = withHeaderSname(resp, nextServer.String())
+					resp = withHeaderBfilename(resp, filepath.Join(ha.Path, bootFileName))
+					l.Info("arch was http of some kind", "arch", mach.arch, "userClass", mach.uClass)
+				} else {
+					ta, _ := url.Parse(tftpAddr)
+					nextServer, err := netaddr.ParseIP(ta.Host)
+					if err != nil {
+						// This error needs to be captured way up the stack in the cli flag validation
+						l.Info("error parsing next server", "error", err.Error())
+					}
+					l.Info("debugging", "nextServer", nextServer)
+					resp.Options[54] = nextServer.IPAddr().IP
+					resp = withHeaderSiaddr(resp, nextServer.IPAddr().IP)
+					resp = withHeaderSname(resp, nextServer.String())
+					resp = withHeaderBfilename(resp, filepath.Join(ta.Path, bootFileName))
+				}
+
+				if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
+					resp = withHeaderBfilename(resp, ipxeURL)
+				}
+			*/
+
 			fname, _ := url.Parse(tftpAddr)
 			i, _ := netaddr.ParseIP(fname.Host)
 			bootFileName, found := Defaults[mach.arch]
 			if !found {
 				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
-				resp = setOpt60(resp, httpClient)
+				resp = opt60(resp, httpClient)
 				i, _ = netaddr.ParseIP(httpAddr)
-				l.V(0).Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
+				l.Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
 			}
 
 			resp.Options[54] = i.IPAddr().IP
 			resp = withHeaderSiaddr(resp, i.IPAddr().IP)
 			resp = withHeaderSname(resp, i.String())
 
+			// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
 				resp = withHeaderBfilename(resp, ipxeURL)
 			} else {
@@ -138,14 +146,15 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 			}
 
 			if err = conn.SendDHCP(&resp, intf); err != nil {
-				l.V(0).Info("Failed to send ProxyDHCP offer", "hwaddr", pkt.HardwareAddr, "error", err.Error())
+				l.Info("Failed to send ProxyDHCP offer", "hwaddr", pkt.HardwareAddr, "error", err.Error())
 				return
 			}
-			l.V(0).Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", resp), "struct", resp)
+			l.Info("Sent ProxyDHCP msg", "msg", fmt.Sprintf("%+v", resp), "struct", resp)
 		}(pkt)
 	}
 }
 
+// processMachine takes a DHCP packet and returns a populated machine.
 func processMachine(pkt *dhcp4.Packet) (machine, error) {
 	mach := machine{}
 	fwt, err := pkt.Options.Uint16(93)
@@ -239,7 +248,7 @@ func withOpt97(pkt dhcp4.Packet, guid []byte) dhcp4.Packet {
 	return pkt
 }
 
-func setOpt60(pkt dhcp4.Packet, c clientType) dhcp4.Packet {
+func opt60(pkt dhcp4.Packet, c clientType) dhcp4.Packet {
 	// The PXE spec says the server should identify itself as a PXEClient or HTTPClient
 	pkt.Options[dhcp4.OptVendorIdentifier] = []byte(c)
 
@@ -269,10 +278,10 @@ var (
 	}
 )
 
-// setOpt43 is completely standard PXE: we tell the PXE client to
+// opt43 is completely standard PXE: we tell the PXE client to
 // bypass all the boot discovery rubbish that PXE supports,
 // and just load a file from TFTP.
-func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
+func opt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 	pxe := dhcp4.Options{
 		// PXE Boot Server Discovery Control - bypass, just boot from filename.
 		6: []byte{8}, // or []byte{8}
@@ -290,8 +299,8 @@ func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 		// https://www.raspberrypi.org/documentation/computers/raspberry-pi.html#PXE_OPTION43
 		// tested with Raspberry Pi 4 using UEFI from here: https://github.com/pftf/RPi4/releases/tag/v1.31
 		// all files were served via a tftp server and lived at the top level dir of the tftp server (i.e tftp://server/)
-		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74")
-		opt10, _ := hex.DecodeString("00505845")
+		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74") // "Raspberry Pi Boot"
+		opt10, _ := hex.DecodeString("00505845")                                // "PXE"
 		pxe[9] = opt9
 		pxe[10] = opt10
 		fmt.Println("PXE: Raspberry Pi detected, adding options 9 and 10")
@@ -302,7 +311,7 @@ func setOpt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 		return dhcp4.Packet{}, fmt.Errorf("failed to serialize PXE Boot Server Discovery Control: %w", err)
 	}
 	msg.Options[43] = bs
-	//msg.Options[43] = []byte{"Raspberry Pi Boot   "}
+
 	return msg, nil
 }
 
@@ -340,11 +349,11 @@ func interfaceIP(intf *net.Interface) net.IP {
 }
 
 // isDiscoverPXEPacket determines if the DHCP packet meets qualifications of a being a PXE enabled client.
-// 1. is a DHCP discovery
+// 1. is a DHCP discovery message type
 // 2. option 93 is set
 // 3. option 94 is set
 // 4. option 97 is correct length.
-// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz"
+// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
 // 6. option 55 is set; only warn if not set
 // 7. options 128-135 are set; only warn if not set
 func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
@@ -402,11 +411,11 @@ func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
 }
 
 // isRequestPXEPacket determines if the DHCP packet meets qualifications of a being a PXE enabled client.
-// 1. is a DHCP discovery
+// 1. is a DHCP Request message type
 // 2. option 93 is set
 // 3. option 94 is set
 // 4. option 97 is correct length.
-// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz"
+// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
 func isRequestPXEPacket(pkt *dhcp4.Packet) error {
 	// should only be a dhcp request messsage type because a discover message type has different requirements
 	if pkt.Type != dhcp4.MsgRequest {
