@@ -202,7 +202,7 @@ func processMachine(pkt *dhcp4.Packet) (machine, error) {
 	case 19:
 		mach.arch = EFIAARCH64Http
 	default:
-		return mach, fmt.Errorf("unsupported client firmware type '%d' for %v (please file a bug!)", fwt, mach.mac)
+		return mach, fmt.Errorf("unsupported client firmware type '%d' for %q (please file a bug!)", fwt, mach.mac)
 	}
 
 	return mach, nil
