@@ -67,7 +67,7 @@ func sendPacket(_ *dhcp4.Conn) {
 		return
 	}
 
-	mac, err := net.ParseMAC("ce:e7:7b:ef:45:f7")
+	mac, err := net.ParseMAC("B8:27:EB:ef:45:f7")
 	if err != nil {
 		fmt.Println("2", err)
 		return
@@ -75,6 +75,9 @@ func sendPacket(_ *dhcp4.Conn) {
 	opts := make(dhcp4.Options)
 	var opt93 dhcp4.Option = 93
 	opts[opt93] = []byte{0x0, 0x0}
+	opts[94] = []byte{0x0, 0x0}
+	opts[60] = []byte("PXEClient")
+	opts[97] = []byte{}
 	var opt77 dhcp4.Option = 77
 	opts[opt77] = []byte("iPXE")
 	p := &dhcp4.Packet{
@@ -214,6 +217,18 @@ func machineType(n int) machine {
 		mach.arch = EFIXscale
 	case 9:
 		mach.arch = EFIBC
+	case 10:
+		mach.arch = EFIARM
+	case 11:
+		mach.arch = EFIAARCH64
+	case 15:
+		mach.arch = EFIx86Http
+	case 16:
+		mach.arch = EFIx8664Http
+	case 18:
+		mach.arch = EFIARMHttp
+	case 19:
+		mach.arch = EFIAARCH64Http
 	default:
 		mach.arch = Architecture(-1)
 	}
@@ -247,8 +262,18 @@ func opt93(n int) dhcp4.Options {
 	case 9:
 		opts[93] = []byte{0x0, 0x9}
 	case 10:
-		opts[93] = []byte{0x0, 0x9}
-		opts[77] = []byte("tinkerbell")
+		opts[93] = []byte{0x0, 10}
+		// opts[77] = []byte("tinkerbell")
+	case 11:
+		opts[93] = []byte{0x0, 11}
+	case 15:
+		opts[93] = []byte{0x0, 15}
+	case 16:
+		opts[93] = []byte{0x0, 16}
+	case 18:
+		opts[93] = []byte{0x0, 18}
+	case 19:
+		opts[93] = []byte{0x0, 19}
 	case 31:
 		opts[93] = []byte{0x0, 0x1F}
 	}
@@ -273,6 +298,12 @@ func TestProcessMachine(t *testing.T) {
 		"success arch 7":        {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(7)}, wantError: nil, wantMachine: machineType(7)},
 		"success arch 8":        {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(8)}, wantError: nil, wantMachine: machineType(8)},
 		"success arch 9":        {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(9)}, wantError: nil, wantMachine: machineType(9)},
+		"success arch 10":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(10)}, wantError: nil, wantMachine: machineType(10)},
+		"success arch 11":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(11)}, wantError: nil, wantMachine: machineType(11)},
+		"success arch 15":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(15)}, wantError: nil, wantMachine: machineType(15)},
+		"success arch 16":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(16)}, wantError: nil, wantMachine: machineType(16)},
+		"success arch 18":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(18)}, wantError: nil, wantMachine: machineType(18)},
+		"success arch 19":       {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(19)}, wantError: nil, wantMachine: machineType(19)},
 		"fail, unknown arch 31": {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(31)}, wantError: fmt.Errorf("unsupported client firmware type '%d' for %q (please file a bug!)", 31, mac)},
 		"fail, bad opt 93":      {input: &dhcp4.Packet{HardwareAddr: mac, Options: opt93(12)}, wantError: fmt.Errorf("malformed DHCP option 93 (required for PXE): option not present in Options")},
 	}
@@ -441,6 +472,12 @@ func TestArchString(t *testing.T) {
 		"Efix8664":        {input: EFIx8664, want: "EFI x86-64"},
 		"EfiXscale":       {input: EFIXscale, want: "EFI Xscale"},
 		"EfiBC":           {input: EFIBC, want: "EFI BC"},
+		"EFIARM":          {input: EFIARM, want: "EFI ARM x86"},
+		"EFIAARCH64":      {input: EFIAARCH64, want: "EFI ARM x86_64"},
+		"EFIx86Http":      {input: EFIx86Http, want: "EFI x86 HTTP"},
+		"EFIx8664Http":    {input: EFIx8664Http, want: "EFI x86-64 HTTP"},
+		"EFIARMHttp":      {input: EFIARMHttp, want: "EFI ARM x86 HTTP"},
+		"EFIAARCH64Http":  {input: EFIAARCH64Http, want: "EFI ARM x86-64 HTTP"},
 		"unknown":         {input: Architecture(20), want: "unknown architecture: 20"},
 	}
 
