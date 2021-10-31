@@ -315,6 +315,7 @@ func opt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 	return msg, nil
 }
 
+/*
 func interfaceIP(intf *net.Interface) net.IP {
 	addrs, err := intf.Addrs()
 	if err != nil {
@@ -347,6 +348,7 @@ func interfaceIP(intf *net.Interface) net.IP {
 
 	return nil
 }
+*/
 
 // isDiscoverPXEPacket determines if the DHCP packet meets qualifications of a being a PXE enabled client.
 // 1. is a DHCP discovery message type
@@ -355,7 +357,7 @@ func interfaceIP(intf *net.Interface) net.IP {
 // 4. option 97 is correct length.
 // 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
 // 6. option 55 is set; only warn if not set
-// 7. options 128-135 are set; only warn if not set
+// 7. options 128-135 are set; only warn if not set.
 func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
 	// should only be a dhcp discover because a request packet has different requirements
 	if pkt.Type != dhcp4.MsgDiscover {
@@ -415,7 +417,7 @@ func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
 // 2. option 93 is set
 // 3. option 94 is set
 // 4. option 97 is correct length.
-// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
+// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz".
 func isRequestPXEPacket(pkt *dhcp4.Packet) error {
 	// should only be a dhcp request messsage type because a discover message type has different requirements
 	if pkt.Type != dhcp4.MsgRequest {

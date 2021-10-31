@@ -17,10 +17,6 @@ import (
 
 // https://github.com/danderson/netboot/blob/bdaec9d82638460bf166fb98bdc6d97331d7bd80/dhcp4/testdata/dhcp.parsed
 
-type testLocator struct {
-	ip string
-}
-
 func TestServe(t *testing.T) {
 	tests := map[string]struct {
 		input string
@@ -28,7 +24,7 @@ func TestServe(t *testing.T) {
 	}{
 		"context canceled": {input: "127.0.0.1:60656", want: context.Canceled},
 	}
-	//tl := testLocator{ip: "127.0.0.1"}
+	// tl := testLocator{ip: "127.0.0.1"}
 
 	logger := logr.Discard()
 
@@ -301,81 +297,81 @@ func TestProcessMachine(t *testing.T) {
 	}
 }
 
+/*
 func TestCreateMSG(t *testing.T) {
-	/*
-		tests := map[string]struct {
-			inputPkt  *dhcp4.Packet
-			inputMach machine
-			wantError error
-			want      *dhcp4.Packet
-		}{
-			"success tftp": {
-				inputPkt: &dhcp4.Packet{
-					ServerAddr: net.IP{127, 0, 0, 1},
-					Options: dhcp4.Options{
-						97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
-					},
+	tests := map[string]struct {
+		inputPkt  *dhcp4.Packet
+		inputMach machine
+		wantError error
+		want      *dhcp4.Packet
+	}{
+		"success tftp": {
+			inputPkt: &dhcp4.Packet{
+				ServerAddr: net.IP{127, 0, 0, 1},
+				Options: dhcp4.Options{
+					97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
 				},
-				want: &dhcp4.Packet{
-					Type:      dhcp4.MsgOffer,
-					Broadcast: true,
-					// ServerAddr:     net.IP{127, 0, 0, 1},
-					// BootServerName: "127.0.0.1",
-					// BootFilename:   "undionly.kpxe",
-					Options: dhcp4.Options{
-						43: {0x06, 0x01, 0x08, 0xff},
-						// 54: {0x7f, 0x00, 0x00, 0x01},
-						60: {0x50, 0x58, 0x45, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74},
-						97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
-					},
-				},
-				inputMach: machineType(0),
 			},
-			"success http": {
-				inputPkt: &dhcp4.Packet{
-					ServerAddr: net.IP{127, 0, 0, 1},
-					Options: dhcp4.Options{
-						97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
-					},
+			want: &dhcp4.Packet{
+				Type:      dhcp4.MsgOffer,
+				Broadcast: true,
+				// ServerAddr:     net.IP{127, 0, 0, 1},
+				// BootServerName: "127.0.0.1",
+				// BootFilename:   "undionly.kpxe",
+				Options: dhcp4.Options{
+					43: {0x06, 0x01, 0x08, 0xff},
+					// 54: {0x7f, 0x00, 0x00, 0x01},
+					60: {0x50, 0x58, 0x45, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74},
+					97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
 				},
-				want: &dhcp4.Packet{
-					Type:      dhcp4.MsgOffer,
-					Broadcast: true,
-					// ServerAddr:   net.IP{127, 0, 0, 1},
-					// BootFilename: "http://boot.netboot.xyz",
-					Options: dhcp4.Options{
-						43: {0x06, 0x01, 0x08, 0xff},
-						// 54: {0x7f, 0x00, 0x00, 0x01},
-						60: {0x50, 0x58, 0x45, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74},
-						97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
-					},
-				},
-				inputMach: machineType(1),
 			},
-		}
-		for name, tc := range tests {
-			t.Run(name, func(t *testing.T) {
-				pkt, err := withGenericHeaders(context.Background(), tc.inputPkt, tc.inputMach)
-				if err != nil {
-					if tc.wantError != nil {
-						if diff := cmp.Diff(err.Error(), tc.wantError.Error()); diff != "" {
-							t.Fatal(diff)
-						}
-					} else {
-						t.Fatalf("expected nil error, got: %v", err)
-					}
-				} else {
-					if diff := cmp.Diff(pkt, tc.want); diff != "" {
+			inputMach: machineType(0),
+		},
+		"success http": {
+			inputPkt: &dhcp4.Packet{
+				ServerAddr: net.IP{127, 0, 0, 1},
+				Options: dhcp4.Options{
+					97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
+				},
+			},
+			want: &dhcp4.Packet{
+				Type:      dhcp4.MsgOffer,
+				Broadcast: true,
+				// ServerAddr:   net.IP{127, 0, 0, 1},
+				// BootFilename: "http://boot.netboot.xyz",
+				Options: dhcp4.Options{
+					43: {0x06, 0x01, 0x08, 0xff},
+					// 54: {0x7f, 0x00, 0x00, 0x01},
+					60: {0x50, 0x58, 0x45, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74},
+					97: {0x0, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x0, 0x5, 0x0, 0x6, 0x0, 0x7, 0x0, 0x8, 0x0, 0x9},
+				},
+			},
+			inputMach: machineType(1),
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			pkt, err := withGenericHeaders(context.Background(), tc.inputPkt, tc.inputMach)
+			if err != nil {
+				if tc.wantError != nil {
+					if diff := cmp.Diff(err.Error(), tc.wantError.Error()); diff != "" {
 						t.Fatal(diff)
 					}
+				} else {
+					t.Fatalf("expected nil error, got: %v", err)
 				}
-			})
-		}
-	*/
+			} else {
+				if diff := cmp.Diff(pkt, tc.want); diff != "" {
+					t.Fatal(diff)
+				}
+			}
+		})
+	}
 }
+*/
 
+/*
 func TestBootOpts(t *testing.T) {
-	/*
 		tests := map[string]struct {
 			inputPkt  *dhcp4.Packet
 			inputMach machine
@@ -427,8 +423,8 @@ func TestBootOpts(t *testing.T) {
 				}
 			})
 		}
-	*/
 }
+*/
 
 func TestArchString(t *testing.T) {
 	tests := map[string]struct {

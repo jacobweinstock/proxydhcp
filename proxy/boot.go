@@ -21,7 +21,7 @@ import (
 func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr, httpAddr, ipxeURL, uClass string) {
 	listener := ipv4.NewPacketConn(conn)
 	if err := listener.SetControlMessage(ipv4.FlagInterface, true); err != nil {
-		panic(fmt.Errorf("couldn't get interface metadata on PXE port: %s", err))
+		panic(fmt.Errorf("couldn't get interface metadata on PXE port: %w", err))
 	}
 
 	for {
