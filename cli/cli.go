@@ -11,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator/v10"
 	"github.com/jacobweinstock/proxydhcp/proxy"
-	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/pkg/errors"
 )
@@ -19,91 +18,99 @@ import (
 const appName = "proxy"
 
 type Config struct {
-	Command         ffcli.Command
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
 	TFTPAddr        string `vname:"-tftp-addr" validate:"required,url"`
 	HTTPAddr        string `vname:"-http-addr" validate:"required,url"`
-	IPXEURL         string `vname:"-ipxe-url" validate:"required,url"`
+	IPXEURL         string `vname:"-ipxe-url" validate:"required"`
 	Addr            string `vname:"-addr" validate:"hostname_port"`
 	CustomUserClass string
 	Log             logr.Logger
 }
 
 // Option for setting optional Client values.
-type ProxyOption func(*Config)
+type Opt func(*Config)
 
-func ProxyWithName(name string) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Command.Name = name
+func WithLogger(l logr.Logger) Opt {
+	return func(c *Config) {
+		c.Log = l
 	}
 }
 
-func ProxyWithShortUsage(shortUsage string) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Command.ShortUsage = shortUsage
+func WithLogLevel(l string) Opt {
+	return func(c *Config) {
+		c.LogLevel = l
 	}
 }
 
-func ProxyWithUsageFunc(usageFunc func(*ffcli.Command) string) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Command.UsageFunc = usageFunc
+func WithCustomUserClass(class string) Opt {
+	return func(c *Config) {
+		c.CustomUserClass = class
 	}
 }
 
-func ProxyWithFlagSet(flagSet *flag.FlagSet) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Command.FlagSet = flagSet
+func WithAddr(addr string) Opt {
+	return func(c *Config) {
+		c.Addr = addr
 	}
 }
 
-func ProxyWithOptions(opts ...ff.Option) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Command.Options = append(cfg.Command.Options, opts...)
+func WithIPXEURL(url string) Opt {
+	return func(c *Config) {
+		c.IPXEURL = url
 	}
 }
 
-func ProxyWithLogger(l logr.Logger) ProxyOption {
-	return func(cfg *Config) {
-		cfg.Log = l
+func WithHTTPAddr(addr string) Opt {
+	return func(c *Config) {
+		c.HTTPAddr = addr
 	}
 }
 
-func ProxyDHCP(_ context.Context, opts ...ProxyOption) (*ffcli.Command, *Config) {
+func WithTFTPAddr(addr string) Opt {
+	return func(c *Config) {
+		c.TFTPAddr = addr
+	}
+}
+
+func NewConfig(opts ...Opt) *Config {
+	c := &Config{
+		LogLevel:        "info",
+		TFTPAddr:        "0.0.0.0:69",
+		HTTPAddr:        "0.0.0.0:8080",
+		IPXEURL:         "",
+		Addr:            "0.0.0.0:67",
+		CustomUserClass: "iPXE",
+		Log:             logr.Discard(),
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
 	cfg := &Config{
 		Log:  logr.Discard(),
 		Addr: "0.0.0.0:67",
-		Command: ffcli.Command{
-			Name:       appName,
-			ShortUsage: fmt.Sprintf("%v runs the proxyDHCP server", appName),
-			FlagSet:    fs,
-		},
 	}
 
 	RegisterFlags(cfg, fs)
-	for _, opt := range opts {
-		opt(cfg)
-	}
 
 	return &ffcli.Command{
-		Name:        cfg.Command.Name,
-		ShortUsage:  cfg.Command.ShortHelp,
-		ShortHelp:   cfg.Command.ShortHelp,
-		LongHelp:    cfg.Command.LongHelp,
-		UsageFunc:   cfg.Command.UsageFunc,
-		FlagSet:     cfg.Command.FlagSet,
-		Options:     cfg.Command.Options,
-		Subcommands: cfg.Command.Subcommands,
-		Exec:        cfg.exec,
+		Name:       appName,
+		ShortUsage: fmt.Sprintf("%v runs the proxyDHCP server", appName),
+		FlagSet:    fs,
+		Exec:       cfg.exec,
 	}, cfg
 }
 
 func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
 	fs.StringVar(&c.Addr, "addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
-	fs.StringVar(&c.TFTPAddr, "tftp-addr", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
-	fs.StringVar(&c.HTTPAddr, "http-addr", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
-	fs.StringVar(&c.IPXEURL, "ipxe-url", "", "A full url to an iPXE script (i.e. http://192.168.2.3/auto.ipxe).")
+	fs.StringVar(&c.TFTPAddr, "remote-tftp", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
+	fs.StringVar(&c.HTTPAddr, "remote-http", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
+	fs.StringVar(&c.IPXEURL, "remote-ipxe-script", "", "A full url to an iPXE script (i.e. http://192.168.2.3/%v/auto.ipxe).")
 	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
 }
 
@@ -139,6 +146,9 @@ func (c *Config) exec(ctx context.Context, args []string) error {
 }
 
 func (c *Config) Run(ctx context.Context, _ []string) error {
+	if c.Log.GetSink() == nil {
+		c.Log = logr.Discard()
+	}
 	redirectionListener, err := proxy.NewListener(c.Addr)
 	if err != nil {
 		return err

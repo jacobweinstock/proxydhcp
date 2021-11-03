@@ -129,6 +129,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 			bootFileName, found := Defaults[mach.arch]
 			if !found {
 				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
+				l.Info("debugging", "bootfilename", bootFileName)
 				resp = opt60(resp, httpClient)
 				i, _ = netaddr.ParseIP(httpAddr)
 				l.Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
@@ -140,10 +141,11 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 
 			// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
-				resp = withHeaderBfilename(resp, ipxeURL)
+				resp = withHeaderBfilename(resp, fmt.Sprintf(ipxeURL, mach.mac.String()))
 			} else {
 				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
 			}
+			l.Info("debugging", "bootfilename", bootFileName)
 
 			if err = conn.SendDHCP(&resp, intf); err != nil {
 				l.Info("Failed to send ProxyDHCP offer", "hwaddr", pkt.HardwareAddr, "error", err.Error())
