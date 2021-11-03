@@ -149,6 +149,7 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	if c.Log.GetSink() == nil {
 		c.Log = logr.Discard()
 	}
+	c.Log = c.Log.WithName("proxydhcp")
 	redirectionListener, err := proxy.NewListener(c.Addr)
 	if err != nil {
 		return err
