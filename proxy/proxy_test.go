@@ -38,7 +38,7 @@ func TestServe(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			g, ctx := errgroup.WithContext(ctx)
 			g.Go(func() error {
-				Serve(ctx, logger, conn, "0.0.0.0", "0.0.0.0", "0.0.0.0", "tinkerbell")
+				Serve(ctx, logger, conn, "0.0.0.0", "0.0.0.0", "0.0.0.0", "auto.ipxe", "tinkerbell")
 				return ctx.Err()
 			})
 			// send DHCP request

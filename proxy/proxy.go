@@ -31,7 +31,7 @@ type machine struct {
 // 1. listen for generic DHCP packets [conn.RecvDHCP()]
 // 2. check if the DHCP packet is requesting PXE boot [isPXEPacket(pkt)]
 // 3.
-func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpAddr, ipxeURL, uClass string) {
+func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpAddr, ipxeAddr, ipxeScript, uClass string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -141,7 +141,7 @@ func Serve(ctx context.Context, l logr.Logger, conn *dhcp4.Conn, tftpAddr, httpA
 
 			// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
-				resp = withHeaderBfilename(resp, fmt.Sprintf(ipxeURL, mach.mac.String()))
+				resp = withHeaderBfilename(resp, fmt.Sprintf("%s/%s/%s", ipxeAddr, mach.mac.String(), ipxeScript))
 			} else {
 				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
 			}

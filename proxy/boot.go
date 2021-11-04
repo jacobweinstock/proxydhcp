@@ -18,7 +18,7 @@ import (
 // 1. listen for generic DHCP packets [conn.RecvDHCP()]
 // 2. check if the DHCP packet is requesting PXE boot [isPXEPacket(pkt)]
 // 3.
-func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr, httpAddr, ipxeURL, uClass string) {
+func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr, httpAddr, ipxeAddr, ipxeScript, uClass string) {
 	listener := ipv4.NewPacketConn(conn)
 	if err := listener.SetControlMessage(ipv4.FlagInterface, true); err != nil {
 		panic(fmt.Errorf("couldn't get interface metadata on PXE port: %w", err))
@@ -120,7 +120,7 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 			resp = withHeaderSname(resp, i.String())
 
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
-				resp = withHeaderBfilename(resp, ipxeURL)
+				resp = withHeaderBfilename(resp, fmt.Sprintf("%s/%s/%s", ipxeAddr, mach.mac.String(), ipxeScript))
 			} else {
 				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
 			}

@@ -19,10 +19,11 @@ const appName = "proxy"
 
 type Config struct {
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
-	TFTPAddr        string `vname:"-tftp-addr" validate:"required,url"`
-	HTTPAddr        string `vname:"-http-addr" validate:"required,url"`
-	IPXEURL         string `vname:"-ipxe-url" validate:"required"`
-	Addr            string `vname:"-addr" validate:"hostname_port"`
+	TFTPAddr        string `vname:"-remote-tftp" validate:"required,url"`
+	HTTPAddr        string `vname:"-remote-http" validate:"required,url"`
+	IPXEAddr        string `vname:"-remote-ipxe" validate:"required"`
+	IPXEScript      string `vname:"-ipxe-script"`
+	ProxyAddr       string `vname:"-proxy-addr" validate:"hostname_port"`
 	CustomUserClass string
 	Log             logr.Logger
 }
@@ -50,13 +51,19 @@ func WithCustomUserClass(class string) Opt {
 
 func WithAddr(addr string) Opt {
 	return func(c *Config) {
-		c.Addr = addr
+		c.ProxyAddr = addr
 	}
 }
 
-func WithIPXEURL(url string) Opt {
+func WithIPXEURL(addr string) Opt {
 	return func(c *Config) {
-		c.IPXEURL = url
+		c.IPXEAddr = addr
+	}
+}
+
+func WithIPXEScriptName(name string) Opt {
+	return func(c *Config) {
+		c.IPXEScript = name
 	}
 }
 
@@ -77,8 +84,9 @@ func NewConfig(opts ...Opt) *Config {
 		LogLevel:        "info",
 		TFTPAddr:        "0.0.0.0:69",
 		HTTPAddr:        "0.0.0.0:8080",
-		IPXEURL:         "",
-		Addr:            "0.0.0.0:67",
+		IPXEAddr:        "",
+		IPXEScript:      "auto.ipxe",
+		ProxyAddr:       "0.0.0.0:67",
 		CustomUserClass: "iPXE",
 		Log:             logr.Discard(),
 	}
@@ -91,8 +99,8 @@ func NewConfig(opts ...Opt) *Config {
 func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
 	cfg := &Config{
-		Log:  logr.Discard(),
-		Addr: "0.0.0.0:67",
+		Log:       logr.Discard(),
+		ProxyAddr: "0.0.0.0:67",
 	}
 
 	RegisterFlags(cfg, fs)
@@ -107,10 +115,11 @@ func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 
 func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
-	fs.StringVar(&c.Addr, "addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
+	fs.StringVar(&c.ProxyAddr, "proxy-addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
 	fs.StringVar(&c.TFTPAddr, "remote-tftp", "", "IP and URI of the TFTP server providing iPXE binaries (192.168.2.5/binaries).")
 	fs.StringVar(&c.HTTPAddr, "remote-http", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:8080/binaries).")
-	fs.StringVar(&c.IPXEURL, "remote-ipxe-script", "", "A full url to an iPXE script (i.e. http://192.168.2.3/%v/auto.ipxe).")
+	fs.StringVar(&c.IPXEAddr, "remote-ipxe", "", "A full url to an iPXE script (i.e. http://192.168.2.3).")
+	fs.StringVar(&c.IPXEScript, "remote-ipxe-script", "auto.ipxe", "The name of the iPXE script to use.")
 	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
 }
 
@@ -150,17 +159,16 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		c.Log = logr.Discard()
 	}
 	c.Log = c.Log.WithName("proxydhcp")
-	redirectionListener, err := proxy.NewListener(c.Addr)
+	redirectionListener, err := proxy.NewListener(c.ProxyAddr)
 	if err != nil {
 		return err
 	}
 	defer redirectionListener.Close()
-	log := c.Log
 
 	go func() {
 		<-ctx.Done()
 		redirectionListener.Close()
-		log.Info("shutting down proxydhcp", "addr", c.Addr)
+		c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
 	}()
 
 	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
@@ -171,12 +179,12 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	go func() {
 		<-ctx.Done()
 		bootListener.Close()
-		log.Info("shutting down proxydhcp", "addr", c.Addr)
+		c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
 	}()
-	go proxy.ServeBoot(ctx, log, bootListener, c.TFTPAddr, c.HTTPAddr, c.IPXEURL, c.CustomUserClass)
+	go proxy.ServeBoot(ctx, c.Log, bootListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
 
-	log.Info("starting proxydhcp", "addr1", c.Addr, "addr2", "0.0.0.0:4011")
+	c.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
 	// proxy.Serve will block until the context (ctx) is canceled .
-	proxy.Serve(ctx, log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEURL, c.CustomUserClass)
+	proxy.Serve(ctx, c.Log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
 	return nil
 }
