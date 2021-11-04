@@ -3,6 +3,7 @@ package proxy
 import (
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"go.universe.tf/netboot/dhcp4"
 )
 
@@ -11,9 +12,10 @@ import (
 func NewListener(addr string) (*dhcp4.Conn, error) {
 	conn, err := dhcp4.NewConn(formatAddr(addr))
 	if err != nil {
-		conn, err = dhcp4.NewSnooperConn(formatAddr(addr))
+		var serr error
+		conn, serr = dhcp4.NewSnooperConn(formatAddr(addr))
 		if err != nil {
-			return nil, err
+			return nil, multierror.Append(err, serr)
 		}
 	}
 
