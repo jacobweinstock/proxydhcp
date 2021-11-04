@@ -122,7 +122,7 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {
 				resp = withHeaderBfilename(resp, fmt.Sprintf("%s/%s/%s", ipxeAddr, mach.mac.String(), ipxeScript))
 			} else {
-				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, bootFileName))
+				resp = withHeaderBfilename(resp, filepath.Join(fname.Path, mach.mac.String(), bootFileName))
 			}
 
 			bs, err := resp.Marshal()
