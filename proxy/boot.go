@@ -16,6 +16,13 @@ import (
 	"inet.af/netaddr"
 )
 
+// _machine describes a device that is requesting a network boot.
+type _machine struct {
+	mac    net.HardwareAddr
+	arch   Architecture
+	uClass UserClass
+}
+
 // ServeBoot handles dhcp request message types.
 // must listen on port 4011.
 // 1. listen for generic DHCP packets [conn.RecvDHCP()]
@@ -276,8 +283,8 @@ func opt43(msg dhcp4.Packet, m net.HardwareAddr) (dhcp4.Packet, error) {
 }
 
 // processMachine takes a DHCP packet and returns a populated machine.
-func processMachine(pkt *dhcp4.Packet) (machine, error) {
-	mach := machine{}
+func processMachine(pkt *dhcp4.Packet) (_machine, error) {
+	mach := _machine{}
 	fwt, err := pkt.Options.Uint16(93)
 	if err != nil {
 		return mach, fmt.Errorf("malformed DHCP option 93 (required for PXE): %w", err)

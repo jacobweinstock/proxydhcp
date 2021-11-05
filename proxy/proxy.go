@@ -5,12 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"net/url"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/pkg/errors"
 	"inet.af/netaddr"
 )
@@ -18,15 +18,15 @@ import (
 // machine describes a device that is requesting a network boot.
 type machine struct {
 	mac    net.HardwareAddr
-	arch   Architecture
+	arch   iana.Arch
 	uClass UserClass
 }
 
 type Handler struct {
 	Ctx        context.Context
 	Log        logr.Logger
-	TFTPAddr   string
-	HTTPAddr   string
+	TFTPAddr   netaddr.IPPort
+	HTTPAddr   netaddr.IPPort
 	IPXEAddr   string
 	IPXEScript string
 	UserClass  string
@@ -88,45 +88,46 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 
 	// Set option 60
 	// The PXE spec says the server should identify itself as a PXEClient or HTTPClient
-	var serverID string
-	bootFileName, found := Defaults[mach.arch]
-	if found {
-		reply.UpdateOption(dhcpv4.OptClassIdentifier(string(pxeClient)))
-		// needed for option 54
-		u, err := url.Parse(h.TFTPAddr)
-		if err != nil {
-			log.Info("unable to parse TFTP server address", "error", err.Error())
-		}
-		serverID = u.Host
+	var opt60 string
+	if strings.HasPrefix(string(m.GetOneOption(dhcpv4.OptionClassIdentifier)), string(httpClient)) {
+		opt60 = string(httpClient)
 	} else {
-		reply.UpdateOption(dhcpv4.OptClassIdentifier(string(httpClient)))
-		bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], h.HTTPAddr)
-		// needed for option 54
-		serverID = h.HTTPAddr
+		opt60 = string(pxeClient)
 	}
+	reply.UpdateOption(dhcpv4.OptClassIdentifier(opt60))
 
 	// Set option 54
-	opt54, err := netaddr.ParseIP(serverID)
-	if err != nil {
-		log.Info("unable to parse serverID", "error", err.Error(), "serverID", serverID)
+	var opt54 net.IP
+	if strings.HasPrefix(string(m.GetOneOption(dhcpv4.OptionClassIdentifier)), string(httpClient)) {
+		opt54 = h.TFTPAddr.UDPAddr().IP
+	} else {
+		opt54 = h.HTTPAddr.TCPAddr().IP
 	}
-	reply.UpdateOption(dhcpv4.OptServerIdentifier(opt54.IPAddr().IP))
+	reply.UpdateOption(dhcpv4.OptServerIdentifier(opt54))
 
 	// set sname header
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
-	reply.ServerHostName = opt54.String()
+	var sname string
+	switch opt60 {
+	case string(pxeClient):
+		sname = h.TFTPAddr.IP().String()
+	case string(httpClient):
+		sname = h.HTTPAddr.IP().String()
+	}
+	reply.ServerHostName = sname
 
 	// set bootfile header
 	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
+	bin, found := ArchToBootFile[mach.arch]
+	if !found {
+		log.Info("unable to find bootfile for arch", "arch", mach.arch)
+		return
+	}
 	var bootfile string
 	if mach.uClass == IPXE || mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
 		bootfile = fmt.Sprintf("%s/%s/%s", h.IPXEAddr, mach.mac.String(), h.IPXEScript)
 	} else {
-		u, err := url.Parse(h.TFTPAddr)
-		if err != nil {
-			log.Info("unable to parse TFTP server address", "error", err.Error())
-		}
-		bootfile = filepath.Join(u.Path, mach.mac.String(), bootFileName)
+		bootfile = filepath.Join(mach.mac.String(), bin)
 	}
 	reply.BootFileName = bootfile
 
@@ -300,50 +301,15 @@ func _processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	if len(fwt) == 0 {
 		return mach, fmt.Errorf("could not determine client architecture")
 	}
+	// Basic architecture identification, based purely on
+	// the PXE architecture option.
+	// https://www.rfc-editor.org/errata_search.php?rfc=4578
+	mach.arch = fwt[0]
 
 	// set option 77 from received packet
 	mach.uClass = UserClass(string(pkt.GetOneOption(dhcpv4.OptionUserClassInformation)))
 
 	mach.mac = pkt.ClientHWAddr
-	// Basic architecture identification, based purely on
-	// the PXE architecture option.
-	// https://www.rfc-editor.org/errata_search.php?rfc=4578
-	switch fwt[0] {
-	case 0:
-		mach.arch = X86PC
-	case 1:
-		mach.arch = NecPC98
-	case 2:
-		mach.arch = EFIItanium
-	case 3:
-		mach.arch = DecAlpha
-	case 4:
-		mach.arch = Arcx86
-	case 5:
-		mach.arch = IntelLeanClient
-	case 6:
-		mach.arch = EFIIA32
-	case 7:
-		mach.arch = EFIx8664
-	case 8:
-		mach.arch = EFIXscale
-	case 9:
-		mach.arch = EFIBC
-	case 10:
-		mach.arch = EFIARM
-	case 11:
-		mach.arch = EFIAARCH64
-	case 15:
-		mach.arch = EFIx86Http
-	case 16:
-		mach.arch = EFIx8664Http
-	case 18:
-		mach.arch = EFIARMHttp
-	case 19:
-		mach.arch = EFIAARCH64Http
-	default:
-		return mach, fmt.Errorf("unsupported client firmware type '%d' for %q (please file a bug!)", fwt, mach.mac)
-	}
 
 	return mach, nil
 }

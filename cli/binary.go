@@ -105,7 +105,7 @@ func jsonOut(w io.Writer) {
 		Binary string `json:"binary"`
 	}
 	output := make([]spec, 0)
-	for arch, ipxe := range proxy.Defaults {
+	for arch, ipxe := range proxy.ArchToBootFile {
 		output = append(output, spec{
 			ID:     int(arch),
 			Arch:   arch.String(),
@@ -131,7 +131,7 @@ func table(w io.Writer) {
 	table.SetHeader([]string{"ID", "Arch", "Binary"})
 
 	var unsortedDefaults []int
-	for arch := range proxy.Defaults {
+	for arch := range proxy.ArchToBootFile {
 		unsortedDefaults = append(unsortedDefaults, int(arch))
 	}
 	sort.Ints(unsortedDefaults)

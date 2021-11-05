@@ -15,14 +15,15 @@ import (
 	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/pkg/errors"
+	"inet.af/netaddr"
 )
 
 const appName = "proxy"
 
 type Config struct {
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
-	TFTPAddr        string `vname:"-remote-tftp" validate:"required,url"`
-	HTTPAddr        string `vname:"-remote-http" validate:"required,url"`
+	TFTPAddr        string `vname:"-remote-tftp" validate:"required,hostname_port"`
+	HTTPAddr        string `vname:"-remote-http" validate:"required,hostname_port"`
 	IPXEAddr        string `vname:"-remote-ipxe" validate:"required,url"`
 	IPXEScript      string `vname:"-ipxe-script" validate:"required"`
 	ProxyAddr       string `vname:"-proxy-addr" validate:"required,ip"`
@@ -175,23 +176,31 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	go proxy.ServeBoot(ctx, c.Log, bootListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
 
 	c.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
-	// proxy.Serve will block until the context (ctx) is canceled .
-	//proxy.Serve(ctx, c.Log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
+	ta, err := netaddr.ParseIPPort(c.TFTPAddr)
+	if err != nil {
+		return err
+	}
+	ha, err := netaddr.ParseIPPort(c.HTTPAddr)
+	if err != nil {
+		return err
+	}
 	h := &proxy.Handler{
 		Ctx:        ctx,
 		Log:        c.Log,
-		TFTPAddr:   c.TFTPAddr,
-		HTTPAddr:   c.HTTPAddr,
+		TFTPAddr:   ta,
+		HTTPAddr:   ha,
 		IPXEAddr:   c.IPXEAddr,
 		IPXEScript: c.IPXEScript,
 		UserClass:  c.CustomUserClass,
 	}
 
+	// for broadcast traffic we need to listen on all IPs
 	laddr := net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: 67,
 	}
-	// server4.NewServer(ifname string is ok to be "" because we are passing in our own conn
+
+	// server4.NewServer() will isolate listening to a specific interface.
 	server, err := server4.NewServer(getInterfaceByIP(c.ProxyAddr), &laddr, h.Handler)
 	if err != nil {
 		log.Fatal(err)

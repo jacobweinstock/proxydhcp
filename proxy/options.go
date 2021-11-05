@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"fmt"
+
+	"github.com/insomniacslk/dhcp/iana"
 )
 
 // Architecture describes a kind of CPU architecture.
@@ -73,6 +75,24 @@ Type   Architecture Name
 */
 
 var (
+	ArchToBootFile = map[iana.Arch]string{
+		iana.INTEL_X86PC:       "undionly.kpxe",
+		iana.NEC_PC98:          "undionly.kpxe",
+		iana.EFI_ITANIUM:       "undionly.kpxe",
+		iana.DEC_ALPHA:         "undionly.kpxe",
+		iana.ARC_X86:           "undionly.kpxe",
+		iana.INTEL_LEAN_CLIENT: "undionly.kpxe",
+		iana.EFI_IA32:          "ipxe.efi",
+		iana.EFI_X86_64:        "ipxe.efi",
+		iana.EFI_XSCALE:        "ipxe.efi",
+		iana.EFI_BC:            "ipxe.efi",
+		iana.EFI_ARM32:         "snp.efi",
+		iana.EFI_ARM64:         "snp.efi",
+		iana.EFI_X86_HTTP:      "ipxe.efi",
+		iana.EFI_X86_64_HTTP:   "ipxe.efi",
+		iana.EFI_ARM32_HTTP:    "snp.efi",
+		iana.EFI_ARM64_HTTP:    "snp.efi",
+	}
 	Defaults = map[Architecture]string{
 		X86PC:           "undionly.kpxe",
 		NecPC98:         "undionly.kpxe",
