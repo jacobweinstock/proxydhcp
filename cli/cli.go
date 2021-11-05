@@ -162,17 +162,19 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		c.Log = logr.Discard()
 	}
 	c.Log = c.Log.WithName("proxydhcp")
-	redirectionListener, err := proxy.NewListener(c.ProxyAddr)
-	if err != nil {
-		return err
-	}
-	defer redirectionListener.Close()
+	/*
+		redirectionListener, err := proxy.NewListener(c.ProxyAddr)
+		if err != nil {
+			return err
+		}
+		defer redirectionListener.Close()
 
-	go func() {
-		<-ctx.Done()
-		redirectionListener.Close()
-		c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
-	}()
+		go func() {
+			<-ctx.Done()
+			redirectionListener.Close()
+			c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
+		}()
+	*/
 
 	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
 	if err != nil {
@@ -202,14 +204,25 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer listener.Close()
 	laddr := net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: 67,
 	}
+	// server4.NewServer(ifname string is ok to be "" because we are passing in our own conn
 	server, err := server4.NewServer("", &laddr, h.Handler, server4.WithConn(listener))
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return server.Serve()
+	errCh := make(chan error)
+	go func() {
+		errCh <- server.Serve()
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		listener.Close()
+		return nil
+	}
 }

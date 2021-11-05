@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -290,9 +289,9 @@ func _opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
 func _processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	mach := machine{}
 	// get option 93 ; arch
-	fwt, err := strconv.Atoi(string(pkt.GetOneOption(dhcpv4.OptionClientSystemArchitectureType)))
-	if err != nil {
-		return mach, fmt.Errorf("failed to parse option 93: %v", err)
+	fwt := pkt.ClientArch()
+	if len(fwt) == 0 {
+		return mach, fmt.Errorf("could not determine client architecture")
 	}
 
 	// set option 77 from received packet
@@ -302,7 +301,7 @@ func _processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
 	// https://www.rfc-editor.org/errata_search.php?rfc=4578
-	switch fwt {
+	switch fwt[0] {
 	case 0:
 		mach.arch = X86PC
 	case 1:
