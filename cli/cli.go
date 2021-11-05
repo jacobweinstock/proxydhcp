@@ -13,7 +13,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/jacobweinstock/proxydhcp/proxy"
-	reuseport "github.com/kavu/go_reuseport"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/pkg/errors"
 )
@@ -24,9 +23,9 @@ type Config struct {
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
 	TFTPAddr        string `vname:"-remote-tftp" validate:"required,url"`
 	HTTPAddr        string `vname:"-remote-http" validate:"required,url"`
-	IPXEAddr        string `vname:"-remote-ipxe" validate:"required"`
-	IPXEScript      string `vname:"-ipxe-script"`
-	ProxyAddr       string `vname:"-proxy-addr" validate:"hostname_port"`
+	IPXEAddr        string `vname:"-remote-ipxe" validate:"required,url"`
+	IPXEScript      string `vname:"-ipxe-script" validate:"required"`
+	ProxyAddr       string `vname:"-proxy-addr" validate:"required,ip"`
 	CustomUserClass string
 	Log             logr.Logger
 }
@@ -162,19 +161,6 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		c.Log = logr.Discard()
 	}
 	c.Log = c.Log.WithName("proxydhcp")
-	/*
-		redirectionListener, err := proxy.NewListener(c.ProxyAddr)
-		if err != nil {
-			return err
-		}
-		defer redirectionListener.Close()
-
-		go func() {
-			<-ctx.Done()
-			redirectionListener.Close()
-			c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
-		}()
-	*/
 
 	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
 	if err != nil {
@@ -200,17 +186,13 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		IPXEScript: c.IPXEScript,
 		UserClass:  c.CustomUserClass,
 	}
-	listener, err := reuseport.ListenPacket("udp4", c.ProxyAddr)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
+
 	laddr := net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: 67,
 	}
 	// server4.NewServer(ifname string is ok to be "" because we are passing in our own conn
-	server, err := server4.NewServer("", &laddr, h.Handler, server4.WithConn(listener))
+	server, err := server4.NewServer(getInterfaceByIP(c.ProxyAddr), &laddr, h.Handler)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -222,7 +204,28 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		listener.Close()
+		server.Close()
 		return nil
 	}
+}
+
+func getInterfaceByIP(ip string) string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				if ipnet.IP.String() == ip {
+					return iface.Name
+				}
+			}
+		}
+	}
+	return ""
 }
