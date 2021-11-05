@@ -72,6 +72,29 @@ Type   Architecture Name
   9    EFI BC
 */
 
+var (
+	Defaults = map[Architecture]string{
+		X86PC:           "undionly.kpxe",
+		NecPC98:         "undionly.kpxe",
+		EFIItanium:      "undionly.kpxe",
+		DecAlpha:        "undionly.kpxe",
+		Arcx86:          "undionly.kpxe",
+		IntelLeanClient: "undionly.kpxe",
+		EFIIA32:         "ipxe.efi",
+		EFIx8664:        "ipxe.efi",
+		EFIXscale:       "ipxe.efi",
+		EFIBC:           "ipxe.efi",
+		EFIARM:          "snp.efi",
+		EFIAARCH64:      "snp.efi",
+	}
+	DefaultsHTTP = map[Architecture]string{
+		EFIx86Http:     "http://%v/ipxe.efi",
+		EFIx8664Http:   "http://%v/ipxe.efi",
+		EFIARMHttp:     "http://%v/snp.efi",
+		EFIAARCH64Http: "http://%v/snp.efi",
+	}
+)
+
 func (a Architecture) String() string {
 	switch a {
 	case X86PC:

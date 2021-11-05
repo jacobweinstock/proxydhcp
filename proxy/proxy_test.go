@@ -1,22 +1,7 @@
 package proxy
 
-import (
-	"context"
-	"errors"
-	"fmt"
-	"net"
-	"testing"
-	"time"
-
-	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
-	"github.com/libp2p/go-reuseport"
-	"go.universe.tf/netboot/dhcp4"
-	"golang.org/x/sync/errgroup"
-)
-
 // https://github.com/danderson/netboot/blob/bdaec9d82638460bf166fb98bdc6d97331d7bd80/dhcp4/testdata/dhcp.parsed
-
+/*
 func TestServe(t *testing.T) {
 	tests := map[string]struct {
 		input string
@@ -101,14 +86,14 @@ func sendPacket(_ *dhcp4.Conn) {
 			fmt.Println("err", err)
 			return
 		}
-		/*
-			pc, err := reuseport.Dial("udp4", "192.168.2.225:35689", "")
-			if err != nil {
-				fmt.Println("45 err", err)
-				return
-			}
-			defer pc.Close()
-		*/
+
+		//pc, err := reuseport.Dial("udp4", "192.168.2.225:35689", "")
+		//if err != nil {
+		//	fmt.Println("45 err", err)
+		//	return
+		//}
+		//defer pc.Close()
+
 		for {
 			// var buf []byte
 			// _, err := pc.Read(buf)
@@ -327,6 +312,7 @@ func TestProcessMachine(t *testing.T) {
 		})
 	}
 }
+*/
 
 /*
 func TestCreateMSG(t *testing.T) {
@@ -456,36 +442,3 @@ func TestBootOpts(t *testing.T) {
 		}
 }
 */
-
-func TestArchString(t *testing.T) {
-	tests := map[string]struct {
-		input Architecture
-		want  string
-	}{
-		"X86PC":           {input: X86PC, want: "Intel x86PC"},
-		"NecPC98":         {input: NecPC98, want: "NEC/PC98"},
-		"EfiItanium":      {input: EFIItanium, want: "EFI Itanium"},
-		"DecAlpha":        {input: DecAlpha, want: "DEC Alpha"},
-		"Arcx86":          {input: Arcx86, want: "Arc x86"},
-		"IntelLeanClient": {input: IntelLeanClient, want: "Intel Lean Client"},
-		"EfiIA32":         {input: EFIIA32, want: "EFI IA32"},
-		"Efix8664":        {input: EFIx8664, want: "EFI x86-64"},
-		"EfiXscale":       {input: EFIXscale, want: "EFI Xscale"},
-		"EfiBC":           {input: EFIBC, want: "EFI BC"},
-		"EFIARM":          {input: EFIARM, want: "EFI ARM x86"},
-		"EFIAARCH64":      {input: EFIAARCH64, want: "EFI ARM x86_64"},
-		"EFIx86Http":      {input: EFIx86Http, want: "EFI x86 HTTP"},
-		"EFIx8664Http":    {input: EFIx8664Http, want: "EFI x86-64 HTTP"},
-		"EFIARMHttp":      {input: EFIARMHttp, want: "EFI ARM x86 HTTP"},
-		"EFIAARCH64Http":  {input: EFIAARCH64Http, want: "EFI ARM x86-64 HTTP"},
-		"unknown":         {input: Architecture(20), want: "unknown architecture: 20"},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.input.String(), tc.want); diff != "" {
-				t.Fatal(diff)
-			}
-		})
-	}
-}
