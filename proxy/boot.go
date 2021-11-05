@@ -115,18 +115,26 @@ func ServeBoot(ctx context.Context, l logr.Logger, conn net.PacketConn, tftpAddr
 				}
 			*/
 
-			fname, _ := url.Parse(tftpAddr)
-			i, _ := netaddr.ParseIP(fname.Host)
+			fname, err := url.Parse(tftpAddr)
+			if err != nil {
+				l.Info("error parsing tftp url", "error", err.Error())
+				return
+			}
+			i, err := netaddr.ParseIPPort(fname.Host)
+			if err != nil {
+				l.Info("error parsing tftp address", "error", err.Error())
+				return
+			}
 			bootFileName, found := Defaults[mach.arch]
 			if !found {
 				bootFileName = fmt.Sprintf(DefaultsHTTP[mach.arch], httpAddr)
 				resp = opt60(resp, httpClient)
-				i, _ = netaddr.ParseIP(httpAddr)
+				i, _ = netaddr.ParseIPPort(httpAddr)
 				l.Info("arch was http of some kind", mach.arch, "userClass", mach.uClass)
 			}
 
-			resp.Options[54] = i.IPAddr().IP
-			resp = withHeaderSiaddr(resp, i.IPAddr().IP)
+			resp.Options[54] = i.IP().IPAddr().IP
+			resp = withHeaderSiaddr(resp, i.IP().IPAddr().IP)
 			resp = withHeaderSname(resp, i.String())
 
 			if mach.uClass == IPXE || mach.uClass == Tinkerbell || (uClass != "" && mach.uClass == UserClass(uClass)) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"reflect"
 	"strings"
 
@@ -184,12 +185,16 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
+	ia, err := url.Parse(c.IPXEAddr)
+	if err != nil {
+		return err
+	}
 	h := &proxy.Handler{
 		Ctx:        ctx,
 		Log:        c.Log,
 		TFTPAddr:   ta,
 		HTTPAddr:   ha,
-		IPXEAddr:   c.IPXEAddr,
+		IPXEAddr:   ia,
 		IPXEScript: c.IPXEScript,
 		UserClass:  c.CustomUserClass,
 	}

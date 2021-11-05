@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -27,7 +28,7 @@ type Handler struct {
 	Log        logr.Logger
 	TFTPAddr   netaddr.IPPort
 	HTTPAddr   netaddr.IPPort
-	IPXEAddr   string
+	IPXEAddr   *url.URL
 	IPXEScript string
 	UserClass  string
 }
