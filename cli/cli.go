@@ -174,7 +174,7 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		bootListener.Close()
 		c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
 	}()
-	go proxy.ServeBoot(ctx, c.Log, bootListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
+	go proxy.ServeBoot(ctx, c.Log, bootListener, "tftp://"+c.TFTPAddr, "http://"+c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
 
 	c.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
 	ta, err := netaddr.ParseIPPort(c.TFTPAddr)
