@@ -16,13 +16,6 @@ import (
 	"inet.af/netaddr"
 )
 
-// machine describes a device that is requesting a network boot.
-type machine struct {
-	mac    net.HardwareAddr
-	arch   iana.Arch
-	uClass UserClass
-}
-
 type Handler struct {
 	Ctx        context.Context
 	Log        logr.Logger
@@ -31,6 +24,13 @@ type Handler struct {
 	IPXEAddr   *url.URL
 	IPXEScript string
 	UserClass  string
+}
+
+// machine describes a device that is requesting a network boot.
+type machine struct {
+	mac    net.HardwareAddr
+	arch   iana.Arch
+	uClass UserClass
 }
 
 func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {

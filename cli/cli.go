@@ -4,15 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
-	"net"
 	"net/url"
 	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator/v10"
-	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/pkg/errors"
@@ -159,24 +156,6 @@ func (c *Config) exec(ctx context.Context, args []string) error {
 }
 
 func (c *Config) Run(ctx context.Context, _ []string) error {
-	if c.Log.GetSink() == nil {
-		c.Log = logr.Discard()
-	}
-	c.Log = c.Log.WithName("proxydhcp")
-
-	bootListener, err := net.ListenPacket("udp4", fmt.Sprintf("%s:%d", "0.0.0.0", 4011))
-	if err != nil {
-		return err
-	}
-	defer bootListener.Close()
-	go func() {
-		<-ctx.Done()
-		bootListener.Close()
-		c.Log.Info("shutting down proxydhcp", "addr", c.ProxyAddr)
-	}()
-	go proxy.ServeBoot(ctx, c.Log, bootListener, "tftp://"+c.TFTPAddr, "http://"+c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
-
-	c.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
 	ta, err := netaddr.ParseIPPort(c.TFTPAddr)
 	if err != nil {
 		return err
@@ -199,47 +178,5 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		UserClass:  c.CustomUserClass,
 	}
 
-	// for broadcast traffic we need to listen on all IPs
-	laddr := net.UDPAddr{
-		IP:   net.ParseIP("0.0.0.0"),
-		Port: 67,
-	}
-
-	// server4.NewServer() will isolate listening to a specific interface.
-	server, err := server4.NewServer(getInterfaceByIP(c.ProxyAddr), &laddr, h.Handler)
-	if err != nil {
-		log.Fatal(err)
-	}
-	errCh := make(chan error)
-	go func() {
-		errCh <- server.Serve()
-	}()
-	select {
-	case err := <-errCh:
-		return err
-	case <-ctx.Done():
-		server.Close()
-		return nil
-	}
-}
-
-func getInterfaceByIP(ip string) string {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-	for _, iface := range ifaces {
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok {
-				if ipnet.IP.String() == ip {
-					return iface.Name
-				}
-			}
-		}
-	}
-	return ""
+	return h.Serve(ctx, c.ProxyAddr)
 }
