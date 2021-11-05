@@ -4,13 +4,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator/v10"
+	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/jacobweinstock/proxydhcp/proxy"
+	reuseport "github.com/kavu/go_reuseport"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/pkg/errors"
 )
@@ -185,6 +188,28 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 
 	c.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
 	// proxy.Serve will block until the context (ctx) is canceled .
-	proxy.Serve(ctx, c.Log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
-	return nil
+	//proxy.Serve(ctx, c.Log, redirectionListener, c.TFTPAddr, c.HTTPAddr, c.IPXEAddr, c.IPXEScript, c.CustomUserClass)
+	h := &proxy.Handler{
+		Ctx:        ctx,
+		Log:        c.Log,
+		TFTPAddr:   c.TFTPAddr,
+		HTTPAddr:   c.HTTPAddr,
+		IPXEAddr:   c.IPXEAddr,
+		IPXEScript: c.IPXEScript,
+		UserClass:  c.CustomUserClass,
+	}
+	listener, err := reuseport.ListenPacket("udp4", c.ProxyAddr)
+	if err != nil {
+		return err
+	}
+	laddr := net.UDPAddr{
+		IP:   net.ParseIP("0.0.0.0"),
+		Port: 67,
+	}
+	server, err := server4.NewServer("", &laddr, h.Handler, server4.WithConn(listener))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return server.Serve()
 }

@@ -382,7 +382,7 @@ func isDiscoverPXEPacket(pkt *dhcp4.Packet) error {
 	if pkt.Options[93] == nil {
 		return errors.New("not a PXE boot request (missing option 93)")
 	}
-	// option 93 must be set
+	// option 94 must be set
 	if pkt.Options[94] == nil {
 		return errors.New("not a PXE boot request (missing option 94)")
 	}

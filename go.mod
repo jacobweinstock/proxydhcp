@@ -8,6 +8,8 @@ require (
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/insomniacslk/dhcp v0.0.0-20211026125128-ad197bcd36fd
+	github.com/kavu/go_reuseport v1.5.0
 	github.com/libp2p/go-reuseport v0.0.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/ff/v3 v3.1.2
