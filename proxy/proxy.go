@@ -73,10 +73,6 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 		reply.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, opt))
 	}
 
-	// withHeaderCiaddr adds the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
-	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
-	reply.ServerIPAddr = net.IP{0, 0, 0, 0} // TODO(jacobweinstock): does this need to be null?
-
 	// set broadcast header to true
 	reply.SetBroadcast()
 
@@ -88,14 +84,14 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 	log.Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
 	// Set option 60
-	// The PXE spec says the server should identify itself as a PXEClient or HTTPClient
+	// The PXE spec says the server should identify itself as a PXEClient
 	var opt60 string
 	if strings.HasPrefix(string(m.GetOneOption(dhcpv4.OptionClassIdentifier)), string(httpClient)) {
 		opt60 = string(httpClient)
 	} else {
 		opt60 = string(pxeClient)
 	}
-	reply.UpdateOption(dhcpv4.OptClassIdentifier(opt60))
+	reply.UpdateOption(dhcpv4.OptClassIdentifier(string(pxeClient)))
 
 	// Set option 54
 	var opt54 net.IP
@@ -105,6 +101,9 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 		opt54 = h.HTTPAddr.TCPAddr().IP
 	}
 	reply.UpdateOption(dhcpv4.OptServerIdentifier(opt54))
+	// add the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
+	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
+	reply.ServerIPAddr = opt54
 
 	// set sname header
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
