@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/insomniacslk/dhcp/iana"
 	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/olekukonko/tablewriter"
 	"github.com/peterbourgon/ff/v3"
@@ -112,7 +113,7 @@ func jsonOut(w io.Writer) {
 			Binary: ipxe,
 		})
 	}
-	for arch, ipxe := range proxy.DefaultsHTTP {
+	for arch, ipxe := range proxy.ArchToBootFile {
 		output = append(output, spec{
 			ID:     int(arch),
 			Arch:   arch.String(),
@@ -136,18 +137,8 @@ func table(w io.Writer) {
 	}
 	sort.Ints(unsortedDefaults)
 	for _, elem := range unsortedDefaults {
-		ipxe := proxy.Defaults[proxy.Architecture(elem)]
-		table.Append([]string{strconv.Itoa(elem), proxy.Architecture(elem).String(), ipxe})
-	}
-
-	var unsortedDefaultsHTTP []int
-	for arch := range proxy.DefaultsHTTP {
-		unsortedDefaultsHTTP = append(unsortedDefaultsHTTP, int(arch))
-	}
-	sort.Ints(unsortedDefaultsHTTP)
-	for _, elem := range unsortedDefaultsHTTP {
-		ipxe := proxy.DefaultsHTTP[proxy.Architecture(elem)]
-		table.Append([]string{strconv.Itoa(elem), proxy.Architecture(elem).String(), fmt.Sprintf(ipxe, "<IP>")})
+		ipxe := proxy.ArchToBootFile[iana.Arch(elem)]
+		table.Append([]string{strconv.Itoa(elem), iana.Arch(elem).String(), ipxe})
 	}
 
 	table.Render()

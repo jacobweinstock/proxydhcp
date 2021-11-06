@@ -54,7 +54,7 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 
 		reply.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer))
 	case dhcpv4.MessageTypeRequest:
-		if err := _isRequestPXEPacket(m); err != nil {
+		if err := isRequestPXEPacket(m); err != nil {
 			log.Info("Ignoring packet", "error", err.Error())
 			return
 		}
@@ -66,7 +66,7 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 
 	// TODO add link to intel spec for this needing to be set
 	// Set option 43
-	_opt43(reply, m.ClientHWAddr)
+	opt43(reply, m.ClientHWAddr)
 
 	// Set option 97
 	if opt := m.GetOneOption(dhcpv4.OptionClientMachineIdentifier); len(opt) > 0 {
@@ -76,7 +76,7 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 	// set broadcast header to true
 	reply.SetBroadcast()
 
-	mach, err := _processMachine(m)
+	mach, err := processMachine(m)
 	if err != nil {
 		log.Info("unable to parse arch or user class: unusable packet", "error", err.Error(), "mach", mach)
 		return
@@ -218,7 +218,7 @@ func isDiscoverPXEPacket(pkt *dhcpv4.DHCPv4) error {
 // 3. option 94 is set
 // 4. option 97 is correct length.
 // 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz".
-func _isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
+func isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 	// should only be a dhcp request messsage type because a discover message type has different requirements
 	if pkt.MessageType() != dhcpv4.MessageTypeRequest {
 		return fmt.Errorf("DHCP message type is %s, must be %s", pkt.MessageType(), dhcpv4.MessageTypeRequest)
@@ -263,7 +263,7 @@ func _isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 // opt43 is completely standard PXE: we tell the PXE client to
 // bypass all the boot discovery rubbish that PXE supports,
 // and just load a file from TFTP.
-func _opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
+func opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
 
 	pxe := dhcpv4.Options{
 		// PXE Boot Server Discovery Control - bypass, just boot from filename.
@@ -295,7 +295,7 @@ func _opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
 }
 
 // processMachine takes a DHCP packet and returns a populated machine.
-func _processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
+func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	mach := machine{}
 	// get option 93 ; arch
 	fwt := pkt.ClientArch()
