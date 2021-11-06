@@ -88,6 +88,7 @@ func (h *Handler) Secondary(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 	reply.UpdateOption(dhcpv4.OptServerIdentifier(opt54))
 	// add the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
+	// without this the pxe client will try to broadcast a request message to 4011
 	reply.ServerIPAddr = opt54
 
 	// set sname header
