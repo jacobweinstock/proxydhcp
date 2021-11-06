@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"log"
 	"net"
 
 	"github.com/go-logr/logr"
@@ -39,13 +38,13 @@ func (h *Handler) Serve(ctx context.Context, addr string) error {
 
 	server2, err := server4.NewServer(getInterfaceByIP(addr), &laddr2, hd.Secondary)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// server4.NewServer() will isolate listening to a specific interface.
 	server, err := server4.NewServer(getInterfaceByIP(addr), &laddr, hd.Handler)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)

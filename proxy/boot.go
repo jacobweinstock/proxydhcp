@@ -25,8 +25,7 @@ func (h *Handler) Secondary(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 	if m.OpCode != dhcpv4.OpcodeBootReply { // TODO(jacobweinstock): dont understand this, found it in an example here: https://github.com/insomniacslk/dhcp/blob/c51060810aaab9c8a0bd1b0fcbf72bc0b91e6427/dhcpv4/server4/server_test.go#L31
 		return
 	}
-	log := h.Log.WithName("secondary")
-	log = h.Log.WithValues("hwaddr", m.ClientHWAddr)
+	log := h.Log.WithName("secondary").WithValues("hwaddr", m.ClientHWAddr)
 	switch mt := m.MessageType(); mt {
 	case dhcpv4.MessageTypeRequest:
 		if err := isRequestPXEPacket(m); err != nil {

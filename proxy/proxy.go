@@ -264,7 +264,6 @@ func isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 // bypass all the boot discovery rubbish that PXE supports,
 // and just load a file from TFTP.
 func opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
-
 	pxe := dhcpv4.Options{
 		// PXE Boot Server Discovery Control - bypass, just boot from filename.
 		6: []byte{8}, // or []byte{8}
@@ -290,7 +289,6 @@ func opt43(reply *dhcpv4.DHCPv4, hw net.HardwareAddr) {
 		fmt.Println("PXE: Raspberry Pi detected, adding options 9 and 10")
 	}
 
-	//reply.Options[43] = pxe.ToBytes()
 	reply.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, pxe.ToBytes()))
 }
 
@@ -309,7 +307,6 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 
 	// set option 77 from received packet
 	mach.uClass = UserClass(string(pkt.GetOneOption(dhcpv4.OptionUserClassInformation)))
-
 	mach.mac = pkt.ClientHWAddr
 
 	return mach, nil
