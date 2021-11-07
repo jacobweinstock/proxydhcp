@@ -1,30 +1,16 @@
 package proxy
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"net"
-	"net/url"
 	"path/filepath"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/pkg/errors"
-	"inet.af/netaddr"
 )
-
-type Handler struct {
-	Ctx        context.Context
-	Log        logr.Logger
-	TFTPAddr   netaddr.IPPort
-	HTTPAddr   netaddr.IPPort
-	IPXEAddr   *url.URL
-	IPXEScript string
-	UserClass  string
-}
 
 // machine describes a device that is requesting a network boot.
 type machine struct {

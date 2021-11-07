@@ -6,6 +6,7 @@ require (
 	github.com/go-logr/logr v1.2.0
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-playground/validator/v10 v10.9.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/insomniacslk/dhcp v0.0.0-20211026125128-ad197bcd36fd
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/ff/v3 v3.1.2
