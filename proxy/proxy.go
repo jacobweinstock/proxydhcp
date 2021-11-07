@@ -116,7 +116,7 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 		bootfile = fmt.Sprintf("%s/%s/%s", h.IPXEAddr, mach.mac.String(), h.IPXEScript)
 	} else if mach.uClass == IPXE {
 		u := &url.URL{
-			Scheme: "tftp://",
+			Scheme: "tftp",
 			Host:   h.TFTPAddr.String(),
 			Path:   fmt.Sprintf("%v/%v", mach.mac.String(), bin),
 		}
