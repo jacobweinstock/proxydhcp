@@ -37,6 +37,12 @@ release-local: ## Build and release all binaries locally
 release: ## Build and release all binaries
 	goreleaser release --rm-dist
 
+.PHONY: cover
+cover: ## Run unit tests with coverage report
+	go test -coverprofile=cover.out ./... || true
+	go tool cover -func=cover.out
+	rm -rf cover.out
+
 # BEGIN: lint-install ../proxydhcp
 # http://github.com/tinkerbell/lint-install
 

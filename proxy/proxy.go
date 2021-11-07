@@ -9,7 +9,6 @@ import (
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
-	"github.com/pkg/errors"
 )
 
 // machine describes a device that is requesting a network boot.
@@ -104,13 +103,13 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 	reply.ServerHostName = sname
 
 	// set bootfile header
-	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 	bin, found := ArchToBootFile[mach.arch]
 	if !found {
 		log.Info("unable to find bootfile for arch", "arch", mach.arch)
 		return
 	}
 	var bootfile string
+	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 	if mach.uClass == IPXE || mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
 		bootfile = fmt.Sprintf("%s/%s/%s", h.IPXEAddr, mach.mac.String(), h.IPXEScript)
 	} else {
@@ -146,7 +145,7 @@ func isDiscoverPXEPacket(pkt *dhcpv4.DHCPv4) error {
 	}
 	// option 60 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
-		return errors.New("not a PXE boot request (missing option 60)")
+		return fmt.Errorf("not a PXE boot request (missing option 60)")
 	}
 	// option 60 must start with PXEClient
 	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
@@ -155,11 +154,11 @@ func isDiscoverPXEPacket(pkt *dhcpv4.DHCPv4) error {
 	}
 	// option 93 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
-		return errors.New("not a PXE boot request (missing option 93)")
+		return fmt.Errorf("not a PXE boot request (missing option 93)")
 	}
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
-		return errors.New("not a PXE boot request (missing option 94)")
+		return fmt.Errorf("not a PXE boot request (missing option 94)")
 	}
 	// option 97 must be have correct length or not be set
 	guid := pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)
@@ -172,10 +171,10 @@ func isDiscoverPXEPacket(pkt *dhcpv4.DHCPv4) error {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return errors.New("malformed client GUID (option 97), leading byte must be zero")
+			return fmt.Errorf("malformed client GUID (option 97), leading byte must be zero")
 		}
 	default:
-		return errors.New("malformed client GUID (option 97), wrong size")
+		return fmt.Errorf("malformed client GUID (option 97), wrong size")
 	}
 	// options 128-135 must be set but just warn for now as we're not using them
 	// these show up as required in https://www.rfc-editor.org/rfc/rfc4578.html#section-2.4
@@ -211,7 +210,7 @@ func isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 	}
 	// option 60 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
-		return errors.New("not a PXE boot request (missing option 60)")
+		return fmt.Errorf("not a PXE boot request (missing option 60)")
 	}
 	// option 60 must start with PXEClient
 	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
@@ -220,11 +219,11 @@ func isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 	}
 	// option 93 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
-		return errors.New("not a PXE boot request (missing option 93)")
+		return fmt.Errorf("not a PXE boot request (missing option 93)")
 	}
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
-		return errors.New("not a PXE boot request (missing option 94)")
+		return fmt.Errorf("not a PXE boot request (missing option 94)")
 	}
 	// option 97 must be have correct length or not be set
 	guid := pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)
@@ -237,10 +236,10 @@ func isRequestPXEPacket(pkt *dhcpv4.DHCPv4) error {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return errors.New("malformed client GUID (option 97), leading byte must be zero")
+			return fmt.Errorf("malformed client GUID (option 97), leading byte must be zero")
 		}
 	default:
-		return errors.New("malformed client GUID (option 97), wrong size")
+		return fmt.Errorf("malformed client GUID (option 97), wrong size")
 	}
 
 	return nil

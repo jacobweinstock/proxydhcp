@@ -24,6 +24,46 @@ type Handler struct {
 	UserClass  string          `validate:"required"`
 }
 
+// Option for setting Handler values.
+type Option func(*Handler)
+
+func WithLogger(l logr.Logger) Option {
+	return func(h *Handler) { h.Log = l }
+}
+
+func WithTFTPAddr(ta netaddr.IPPort) Option {
+	return func(h *Handler) { h.TFTPAddr = ta }
+}
+
+func WithHTTPAddr(ha netaddr.IPPort) Option {
+	return func(h *Handler) { h.HTTPAddr = ha }
+}
+
+func WithIPXEAddr(u *url.URL) Option {
+	return func(h *Handler) { h.IPXEAddr = u }
+}
+
+func WithIPXEScript(s string) Option {
+	return func(h *Handler) { h.IPXEScript = s }
+}
+
+func WithUserClass(s string) Option {
+	return func(h *Handler) { h.UserClass = s }
+}
+
+func NewHandler(ctx context.Context, opts ...Option) *Handler {
+	defaultHandler := &Handler{
+		Ctx:        ctx,
+		Log:        logr.Discard(),
+		IPXEScript: "auto.ipxe",
+		UserClass:  string(IPXE),
+	}
+	for _, opt := range opts {
+		opt(defaultHandler)
+	}
+	return defaultHandler
+}
+
 func validate(h *Handler) error {
 	v := validator.New()
 	v.RegisterCustomTypeFunc(validateIPPORT, netaddr.IPPort{})
