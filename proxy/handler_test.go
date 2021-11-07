@@ -24,7 +24,7 @@ func TestValidate(t *testing.T) {
 				Ctx:        context.TODO(),
 				Log:        logr.Discard(),
 				IPXEScript: "auto.ipxe",
-				UserClass:  "iPXE",
+				UserClass:  "custom",
 				IPXEAddr: &url.URL{
 					Host: "192.168.2.2",
 				},

@@ -21,7 +21,7 @@ type Handler struct {
 	HTTPAddr   netaddr.IPPort  `validate:"required"`
 	IPXEAddr   *url.URL        `validate:"required"`
 	IPXEScript string          `validate:"required"`
-	UserClass  string          `validate:"required"`
+	UserClass  string          `validate`
 }
 
 // Option for setting Handler values.
@@ -56,7 +56,6 @@ func NewHandler(ctx context.Context, opts ...Option) *Handler {
 		Ctx:        ctx,
 		Log:        logr.Discard(),
 		IPXEScript: "auto.ipxe",
-		UserClass:  string(IPXE),
 	}
 	for _, opt := range opts {
 		opt(defaultHandler)

@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -99,8 +100,15 @@ func (h *Handler) Secondary(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 		return
 	}
 	var bootfile string
-	if mach.uClass == IPXE || mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
+	if mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
 		bootfile = fmt.Sprintf("%s/%s/%s", h.IPXEAddr, mach.mac.String(), h.IPXEScript)
+	} else if mach.uClass == IPXE {
+		u := &url.URL{
+			Scheme: "tftp://",
+			Host:   h.TFTPAddr.String(),
+			Path:   fmt.Sprintf("%v/%v", mach.mac.String(), bin),
+		}
+		bootfile = u.String()
 	} else {
 		bootfile = filepath.Join(mach.mac.String(), bin)
 	}

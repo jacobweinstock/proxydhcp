@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -110,8 +111,16 @@ func (h *Handler) Handler(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) 
 	}
 	var bootfile string
 	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
-	if mach.uClass == IPXE || mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
+	// if iPXE user class is found it means we arent in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
+	if mach.uClass == Tinkerbell || (h.UserClass != "" && mach.uClass == UserClass(h.UserClass)) {
 		bootfile = fmt.Sprintf("%s/%s/%s", h.IPXEAddr, mach.mac.String(), h.IPXEScript)
+	} else if mach.uClass == IPXE {
+		u := &url.URL{
+			Scheme: "tftp://",
+			Host:   h.TFTPAddr.String(),
+			Path:   fmt.Sprintf("%v/%v", mach.mac.String(), bin),
+		}
+		bootfile = u.String()
 	} else {
 		bootfile = filepath.Join(mach.mac.String(), bin)
 	}
