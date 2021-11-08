@@ -1,13 +1,13 @@
 package proxy
 
 import (
-	"context"
 	"net"
 
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+	"inet.af/netaddr"
 )
 
-func (h *Handler) ServeRedirection(ctx context.Context, addr string) (*server4.Server, error) {
+func (h *Handler) ServeRedirection(addr netaddr.IPPort) (*server4.Server, error) {
 	if err := validate(h); err != nil {
 		return nil, err
 	}
@@ -16,29 +16,11 @@ func (h *Handler) ServeRedirection(ctx context.Context, addr string) (*server4.S
 	// for broadcast traffic we need to listen on all IPs
 	laddr := net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
-		Port: 67,
+		Port: addr.UDPAddr().Port,
 	}
 
 	// server4.NewServer() will isolate listening to a specific interface.
-	server, err := server4.NewServer(getInterfaceByIP(addr), &laddr, h.Handler)
-	if err != nil {
-		return nil, err
-	}
-	return server, nil
-}
-
-func (h *Handler) ServeBoot(ctx context.Context, addr string) (*server4.Server, error) {
-	if err := validate(h); err != nil {
-		return nil, err
-	}
-	h.Log = h.Log.WithName("proxy")
-
-	laddr := net.UDPAddr{
-		IP:   net.ParseIP("0.0.0.0"),
-		Port: 4011,
-	}
-
-	server, err := server4.NewServer(getInterfaceByIP(addr), &laddr, h.Secondary)
+	server, err := server4.NewServer(getInterfaceByIP(addr.IP().String()), &laddr, h.Redirection)
 	if err != nil {
 		return nil, err
 	}

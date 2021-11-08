@@ -114,12 +114,18 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	}
 	h := proxy.NewHandler(ctx, opts...)
 
-	rs, err := h.ServeRedirection(ctx, c.ProxyAddr)
+	u, err := netaddr.ParseIPPort(c.ProxyAddr + ":67")
+	if err != nil {
+		return err
+	}
+	rs, err := h.ServeRedirection(u)
 	if err != nil {
 		return err
 	}
 
-	bs, err := h.ServeBoot(ctx, c.ProxyAddr)
+	ctx2 := context.WithValue(ctx, "4011", true)
+	h2 := proxy.NewHandler(ctx2, opts...)
+	bs, err := h2.ServeRedirection(u.WithPort(4011))
 	if err != nil {
 		return err
 	}
