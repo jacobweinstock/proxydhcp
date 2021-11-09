@@ -8,7 +8,7 @@ import (
 )
 
 func (h *Handler) ServeRedirection(addr netaddr.IPPort) (*server4.Server, error) {
-	if err := validate(h); err != nil {
+	if err := validateHandler(h); err != nil {
 		return nil, err
 	}
 	h.Log = h.Log.WithName("proxy")

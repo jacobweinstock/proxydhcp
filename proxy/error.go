@@ -35,12 +35,11 @@ func (e ErrArchNotFound) Error() string {
 }
 
 type ErrInvalidMsgType struct {
-	Valid   dhcpv4.MessageType
 	Invalid dhcpv4.MessageType
 }
 
 func (e ErrInvalidMsgType) Error() string {
-	return fmt.Sprintf("must be a DHCP message of type %q, %q", e.Valid, e.Invalid)
+	return fmt.Sprintf("must be a DHCP message of type [DISCOVER, REQUEST], %q", e.Invalid)
 }
 
 type ErrInvalidOption60 struct {

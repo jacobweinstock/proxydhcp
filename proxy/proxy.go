@@ -33,7 +33,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	}
 	rp := replyPacket{reply}
 
-	if err := ensurePXEClient(m); err != nil {
+	if err := validatePXE(m); err != nil {
 		log.Info("Ignoring packet: not from a PXE enabled client", "error", err)
 		return
 	}
@@ -92,18 +92,18 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	log.Info("Sent ProxyDHCP offer", "summary", reply.Summary())
 }
 
-// validateDiscover determines if the DHCP packet meets qualifications of a being a PXE enabled client for the Discovery message type.
-// 1. is a DHCP discovery message type
+// validatePXE determines if the DHCP packet meets qualifications of a being a PXE enabled client.
+// 1. is a DHCP discovery/request message type
 // 2. option 93 is set
 // 3. option 94 is set
 // 4. option 97 is correct length.
 // 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
 // 6. option 55 is set; only warn if not set
 // 7. options 128-135 are set; only warn if not set.
-func validateDiscover(pkt *dhcpv4.DHCPv4) error {
-	// should only be a dhcp discover because a request packet has different requirements
-	if pkt.MessageType() != dhcpv4.MessageTypeDiscover {
-		return ErrInvalidMsgType{Valid: dhcpv4.MessageTypeDiscover, Invalid: pkt.MessageType()}
+func validatePXE(pkt *dhcpv4.DHCPv4) error {
+	// only response to DISCOVER and REQUEST packets
+	if pkt.MessageType() != dhcpv4.MessageTypeDiscover && pkt.MessageType() != dhcpv4.MessageTypeRequest {
+		return ErrInvalidMsgType{Invalid: pkt.MessageType()}
 	}
 	// option 55 must be set
 	if !pkt.Options.Has(dhcpv4.OptionParameterRequestList) {
@@ -123,6 +123,7 @@ func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
 		return ErrOpt93Missing
 	}
+	fmt.Printf("client arch: %v\n", pkt.GetOneOption(dhcpv4.OptionClientSystemArchitectureType))
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
 		return ErrOpt94Missing
@@ -165,54 +166,6 @@ func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 	return nil
 }
 
-// validateRequest determines if the DHCP packet meets qualifications of a being a PXE enabled client for the Request message type.
-// 1. is a DHCP Request message type
-// 2. option 93 is set
-// 3. option 94 is set
-// 4. option 97 is correct length.
-// 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz".
-func validateRequest(pkt *dhcpv4.DHCPv4) error {
-	// should only be a dhcp request messsage type because a discover message type has different requirements
-	if pkt.MessageType() != dhcpv4.MessageTypeRequest {
-		return ErrInvalidMsgType{Valid: dhcpv4.MessageTypeRequest, Invalid: pkt.MessageType()}
-	}
-	// option 60 must be set
-	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
-		return ErrOpt60Missing
-	}
-	// option 60 must start with PXEClient
-	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
-	if !strings.HasPrefix(string(opt60), string(pxeClient)) && !strings.HasPrefix(string(opt60), string(httpClient)) {
-		return ErrInvalidOption60{Opt60: string(opt60)}
-	}
-	// option 93 must be set
-	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
-		return ErrOpt93Missing
-	}
-	// option 94 must be set
-	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
-		return ErrOpt94Missing
-	}
-	// option 97 must be have correct length or not be set
-	guid := pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)
-	switch len(guid) {
-	case 0:
-		// A missing GUID is invalid according to the spec, however
-		// there are PXE ROMs in the wild that omit the GUID and still
-		// expect to boot. The only thing we do with the GUID is
-		// mirror it back to the client if it's there, so we might as
-		// well accept these buggy ROMs.
-	case 17:
-		if guid[0] != 0 {
-			return ErrOpt97LeadingByteError
-		}
-	default:
-		return ErrOpt97WrongSize
-	}
-
-	return nil
-}
-
 // processMachine takes a DHCP packet and returns a populated machine.
 func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	mach := machine{}
@@ -221,6 +174,12 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	if len(fwt) == 0 {
 		return mach, ErrUnknownArch
 	}
+	fmt.Println(len(fwt))
+	for _, f := range fwt {
+		fmt.Println(f)
+	}
+	fmt.Println(fwt[0])
+	fmt.Println(fwt[0].String())
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
 	// https://www.rfc-editor.org/errata_search.php?rfc=4578

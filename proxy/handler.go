@@ -63,7 +63,7 @@ func NewHandler(ctx context.Context, opts ...Option) *Handler {
 	return defaultHandler
 }
 
-func validate(h *Handler) error {
+func validateHandler(h *Handler) error {
 	v := validator.New()
 	v.RegisterCustomTypeFunc(validateIPPORT, netaddr.IPPort{})
 	v.RegisterCustomTypeFunc(validateURL, url.URL{})

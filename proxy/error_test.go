@@ -23,8 +23,8 @@ func TestArchNotFound(t *testing.T) {
 }
 
 func TestInvalidMsgType(t *testing.T) {
-	p := ErrInvalidMsgType{Valid: dhcpv4.MessageTypeDiscover, Invalid: dhcpv4.MessageTypeAck}
-	if diff := cmp.Diff(p.Error(), "must be a DHCP message of type \"DISCOVER\", \"ACK\""); diff != "" {
+	p := ErrInvalidMsgType{Invalid: dhcpv4.MessageTypeAck}
+	if diff := cmp.Diff(p.Error(), "must be a DHCP message of type [DISCOVER, REQUEST], \"ACK\""); diff != "" {
 		t.Errorf(diff)
 	}
 }
