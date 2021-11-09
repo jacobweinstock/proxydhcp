@@ -59,21 +59,24 @@ func (r replyPacket) setBootfile(mach machine, customUC string, tftp netaddr.IPP
 	bin, found := ArchToBootFile[mach.arch]
 	if !found {
 		return ErrArchNotFound{Arch: mach.arch}
-		//return fmt.Errorf("unable to find bootfile for arch %s", mach.arch)
+		// return fmt.Errorf("unable to find bootfile for arch %s", mach.arch)
 	}
 	var bootfile string
 	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell
 	// if iPXE user class is found it means we arent in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
-	if mach.uClass == Tinkerbell || (customUC != "" && mach.uClass == UserClass(customUC)) {
-		bootfile = fmt.Sprintf("%s/%s/%s", ipxe, mach.mac.String(), iscript)
-	} else if mach.uClass == IPXE {
+	switch mach.uClass {
+	case IPXE:
 		u := &url.URL{
 			Scheme: "tftp",
 			Host:   tftp.String(),
 			Path:   fmt.Sprintf("%v/%v", mach.mac.String(), bin),
 		}
 		bootfile = u.String()
-	} else {
+	case UserClass(""):
+		bootfile = filepath.Join(mach.mac.String(), bin)
+	case Tinkerbell, UserClass(customUC):
+		bootfile = fmt.Sprintf("%s/%s/%s", ipxe, mach.mac.String(), iscript)
+	default:
 		bootfile = filepath.Join(mach.mac.String(), bin)
 	}
 	r.BootFileName = bootfile

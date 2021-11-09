@@ -82,7 +82,7 @@ func (r replyPacket) setOpt97(guid []byte) error {
 // setOpt43 is completely standard PXE: we tell the PXE client to
 // bypass all the boot discovery rubbish that PXE supports,
 // and just load a file from TFTP.
-// TODO(jacobweinstock): add link to intel spec for this needing to be set
+// TODO(jacobweinstock): add link to intel spec for this needing to be set.
 func (r replyPacket) setOpt43(hw net.HardwareAddr) {
 	pxe := dhcpv4.Options{
 		// PXE Boot Server Discovery Control - bypass, just boot from filename.

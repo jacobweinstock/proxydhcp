@@ -77,7 +77,7 @@ func TestEnsurePXEClient(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := ensurePXEClient(m); err != tt.wantErr {
+			if err := ensurePXEClient(m); !errors.Is(err, tt.wantErr) {
 				t.Errorf("ensurePXEClient() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})

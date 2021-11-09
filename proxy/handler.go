@@ -21,7 +21,7 @@ type Handler struct {
 	HTTPAddr   netaddr.IPPort  `validate:"required"`
 	IPXEAddr   *url.URL        `validate:"required"`
 	IPXEScript string          `validate:"required"`
-	UserClass  string          `validate`
+	UserClass  string          `validate:""`
 }
 
 // Option for setting Handler values.

@@ -111,7 +111,7 @@ func TestValidateDiscover(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := validateDiscover(m); err != tt.wantErr {
+			if err := validateDiscover(m); !errors.Is(err, tt.wantErr) {
 				t.Errorf("validateDiscover() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})
@@ -219,8 +219,8 @@ func TestValidateRequest(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := validateRequest(m); err != tt.wantErr {
-				t.Errorf("validateRequest() error = %v, wantErr = %v", err, tt.wantErr)
+			if err := validateRequest(m); !errors.Is(err, tt.wantErr) {
+				t.Fatalf("validateRequest() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})
 	}

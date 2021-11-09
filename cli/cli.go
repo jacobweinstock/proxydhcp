@@ -123,8 +123,7 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		return err
 	}
 
-	ctx2 := context.WithValue(ctx, "4011", true)
-	h2 := proxy.NewHandler(ctx2, opts...)
+	h2 := proxy.NewHandler(ctx, opts...)
 	bs, err := h2.ServeRedirection(u.WithPort(4011))
 	if err != nil {
 		return err

@@ -15,7 +15,7 @@ func TestSetOpt97(t *testing.T) {
 		name     string
 		guid     []byte
 		wantErr  error
-		wantGuid []byte
+		wantGUID []byte
 	}{
 		{
 			name:    "failure - leading byte must be zero",
@@ -31,7 +31,7 @@ func TestSetOpt97(t *testing.T) {
 			name:     "success",
 			guid:     []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11},
 			wantErr:  nil,
-			wantGuid: []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11},
+			wantGUID: []byte{0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11},
 		},
 	}
 	for _, tt := range tests {
@@ -41,8 +41,8 @@ func TestSetOpt97(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("setOpt97() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if tt.wantGuid != nil {
-				if diff := cmp.Diff(reply.GetOneOption(dhcpv4.OptionClientMachineIdentifier), tt.wantGuid); diff != "" {
+			if tt.wantGUID != nil {
+				if diff := cmp.Diff(reply.GetOneOption(dhcpv4.OptionClientMachineIdentifier), tt.wantGUID); diff != "" {
 					t.Fatalf(diff)
 				}
 			}
@@ -51,6 +51,7 @@ func TestSetOpt97(t *testing.T) {
 }
 
 // Constants for ASCII characters without printable symbols.
+// https://github.com/scott-ainsworth/go-ascii/blob/master/ascii.go
 const (
 	NUL = 0x00 // '\0' Null
 	SOH = 0x01 //      Start of Header
@@ -63,7 +64,7 @@ const (
 	BS  = 0x08 // '\b' Backspace
 	HT  = 0x09 // '\t' Horizontal Tab
 	LF  = 0x0A // '\n' Line Feed
-	VT  = 0x0B // '\v' Verical Tab
+	VT  = 0x0B // '\v' Vertical Tab
 	FF  = 0x0C // '\f' Form Feed
 	CR  = 0x0D // '\r' Carriage Return
 	SO  = 0x0E //      Shift Out
@@ -73,7 +74,7 @@ const (
 	DC2 = 0x12 //      Device Control 2
 	DC3 = 0x13 //      Device Control 3
 	DC4 = 0x14 //      Device Control 4
-	NAK = 0x15 //      Negative Acknoledgement
+	NAK = 0x15 //      Negative Acknowledgement
 	SYN = 0x16 //      Synchronize
 	ETB = 0x17 //      End of Transmission Block
 	CAN = 0x18 //      Cancel
@@ -107,7 +108,7 @@ func TestSetOpt43(t *testing.T) {
 		{
 			name:      "success - with raspberry pi opts",
 			hw:        net.HardwareAddr{0xB8, 0x27, 0xEB, 0x03, 0x04, 0x05},
-			wantOpt43: append(append(append(empty, prefix...), rp...), rp2[:]...),
+			wantOpt43: append(append(append(empty, prefix...), rp...), rp2...),
 		},
 	}
 	for _, tt := range tests {
@@ -131,16 +132,16 @@ func TestSetOpt54(t *testing.T) {
 	}{
 		{
 			name:   "success - PXEClient",
-			opt60: []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz"),
-			tftp:  net.IPv4(192, 168, 1, 1),
-			http:  net.IPv4(192, 168, 1, 2),
+			opt60:  []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz"),
+			tftp:   net.IPv4(192, 168, 1, 1),
+			http:   net.IPv4(192, 168, 1, 2),
 			wantIP: net.IPv4(192, 168, 1, 1),
 		},
 		{
 			name:   "success - HTTPClient",
-			opt60: []byte("HTTPClient:Arch:xxxxx:UNDI:yyyzzz"),
-			tftp:  net.IPv4(192, 168, 1, 1),
-			http:  net.IPv4(192, 168, 1, 2),
+			opt60:  []byte("HTTPClient:Arch:xxxxx:UNDI:yyyzzz"),
+			tftp:   net.IPv4(192, 168, 1, 1),
+			http:   net.IPv4(192, 168, 1, 2),
 			wantIP: net.IPv4(192, 168, 1, 2),
 		},
 	}
