@@ -14,7 +14,6 @@ import (
 )
 
 func TestEnsurePXEClient(t *testing.T) {
-	//mac := net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}
 	tests := []struct {
 		name    string
 		mods    []dhcpv4.Modifier
@@ -36,7 +35,7 @@ func TestEnsurePXEClient(t *testing.T) {
 					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover))
 				},
 			},
-			wantErr: ErrIgnorePacket{PacketType: dhcpv4.MessageTypeDiscover, Details: "not a PXE boot request (missing option 60)"},
+			wantErr: ErrIgnorePacket{PacketType: dhcpv4.MessageTypeDiscover, Details: "not a valid PXE request, missing option 60"},
 		},
 		{
 			name: "failure invalid DHCP Offer packet",
@@ -45,7 +44,7 @@ func TestEnsurePXEClient(t *testing.T) {
 					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest))
 				},
 			},
-			wantErr: ErrIgnorePacket{PacketType: dhcpv4.MessageTypeRequest, Details: "not a PXE boot request (missing option 60)"},
+			wantErr: ErrIgnorePacket{PacketType: dhcpv4.MessageTypeRequest, Details: "not a valid PXE request, missing option 60"},
 		},
 		{
 			name: "success DHCP Discover packet",
@@ -74,13 +73,10 @@ func TestEnsurePXEClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			//m := &dhcpv4.DHCPv4{}
 			m, err := dhcpv4.New(tt.mods...)
 			if err != nil {
 				t.Fatal(err)
 			}
-			//m.UpdateOption(dhcpv4.OptMessageType(tt.pkt.MessageType()))
-
 			if err := ensurePXEClient(m); err != tt.wantErr {
 				t.Errorf("ensurePXEClient() error = %v, wantErr = %v", err, tt.wantErr)
 			}

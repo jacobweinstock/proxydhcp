@@ -59,7 +59,6 @@ type replyPacket struct {
 	*dhcpv4.DHCPv4
 }
 
-// TODO: should this be setting opt97? its not currently.
 func (r replyPacket) setOpt97(guid []byte) error {
 	// option 97 must be have correct length or not be set
 	switch len(guid) {
@@ -71,17 +70,19 @@ func (r replyPacket) setOpt97(guid []byte) error {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return fmt.Errorf("malformed client GUID (option 97), leading byte must be zero")
+			return ErrOpt97LeadingByteError
 		}
 	default:
-		return fmt.Errorf("malformed client GUID (option 97), wrong size")
+		return ErrOpt97WrongSize
 	}
+	r.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, guid))
 	return nil
 }
 
 // setOpt43 is completely standard PXE: we tell the PXE client to
 // bypass all the boot discovery rubbish that PXE supports,
 // and just load a file from TFTP.
+// TODO(jacobweinstock): add link to intel spec for this needing to be set
 func (r replyPacket) setOpt43(hw net.HardwareAddr) {
 	pxe := dhcpv4.Options{
 		// PXE Boot Server Discovery Control - bypass, just boot from filename.
@@ -101,8 +102,10 @@ func (r replyPacket) setOpt43(hw net.HardwareAddr) {
 		// https://www.raspberrypi.org/documentation/computers/raspberry-pi.html#PXE_OPTION43
 		// tested with Raspberry Pi 4 using UEFI from here: https://github.com/pftf/RPi4/releases/tag/v1.31
 		// all files were served via a tftp server and lived at the top level dir of the tftp server (i.e tftp://server/)
-		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74") // "Raspberry Pi Boot"
-		opt10, _ := hex.DecodeString("00505845")                                // "PXE"
+		// "\x00\x00\x11" is equal to NUL(Null), NUL(Null), DC1(Device Control 1)
+		opt9, _ := hex.DecodeString("00001152617370626572727920506920426f6f74") // "\x00\x00\x11Raspberry Pi Boot"
+		// "\x0a\x04\x00" is equal to LF(Line Feed), EOT(End of Transmission), NUL(Null)
+		opt10, _ := hex.DecodeString("00505845") // "\x0a\x04\x00PXE"
 		pxe[9] = opt9
 		pxe[10] = opt10
 		fmt.Println("PXE: Raspberry Pi detected, adding options 9 and 10")
@@ -112,12 +115,12 @@ func (r replyPacket) setOpt43(hw net.HardwareAddr) {
 }
 
 // setOpt54 based on option 60.
-func (r replyPacket) setOpt54(reqOpt60 []byte, c clientType, tftp net.IP, http net.IP) net.IP {
+func (r replyPacket) setOpt54(reqOpt60 []byte, tftp net.IP, http net.IP) net.IP {
 	var opt54 net.IP
 	if strings.HasPrefix(string(reqOpt60), string(httpClient)) {
-		opt54 = tftp
-	} else {
 		opt54 = http
+	} else {
+		opt54 = tftp
 	}
 	r.UpdateOption(dhcpv4.OptServerIdentifier(opt54))
 

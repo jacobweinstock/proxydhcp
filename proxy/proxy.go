@@ -50,7 +50,6 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	}
 	log.Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
-	// TODO add link to intel spec for this needing to be set
 	// Set option 43
 	rp.setOpt43(m.ClientHWAddr)
 
@@ -68,17 +67,12 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	reply.UpdateOption(dhcpv4.OptClassIdentifier(string(pxeClient)))
 
 	// Set option 54
-	opt54 := rp.setOpt54(m.GetOneOption(dhcpv4.OptionClassIdentifier), httpClient, h.TFTPAddr.UDPAddr().IP, h.HTTPAddr.TCPAddr().IP)
+	opt54 := rp.setOpt54(m.GetOneOption(dhcpv4.OptionClassIdentifier), h.TFTPAddr.UDPAddr().IP, h.HTTPAddr.TCPAddr().IP)
 
 	// add the siaddr (IP address of next server) dhcp packet header to a given packet pkt.
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
 	// without this the pxe client will try to broadcast a request message to port 4011
-	// debugging/testing
-	if h.Ctx.Value("4011") != nil {
-		h.Log.Info("Setting ServerIPAddr")
-		reply.ServerIPAddr = opt54
-	}
-	//reply.ServerIPAddr = opt54
+	reply.ServerIPAddr = opt54
 
 	// set sname header
 	// see https://datatracker.ietf.org/doc/html/rfc2131#section-2
@@ -109,7 +103,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 	// should only be a dhcp discover because a request packet has different requirements
 	if pkt.MessageType() != dhcpv4.MessageTypeDiscover {
-		return fmt.Errorf("DHCP message type is %s, must be %s", pkt.MessageType(), dhcpv4.MessageTypeDiscover)
+		return ErrInvalidMsgType{Valid: dhcpv4.MessageTypeDiscover, Invalid: pkt.MessageType()}
 	}
 	// option 55 must be set
 	if !pkt.Options.Has(dhcpv4.OptionParameterRequestList) {
@@ -118,21 +112,22 @@ func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 	}
 	// option 60 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
-		return fmt.Errorf("not a PXE boot request (missing option 60)")
+		return ErrOpt60Missing
 	}
-	// option 60 must start with PXEClient
+	// option 60 must start with PXEClient or HTTPClient
 	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
-	if !strings.HasPrefix(string(opt60), "PXEClient") && !strings.HasPrefix(string(opt60), "HTTPClient") {
-		return fmt.Errorf("not a PXE boot request (option 60 does not start with PXEClient: %v)", string(pkt.Options[60]))
+	if !strings.HasPrefix(string(opt60), string(pxeClient)) && !strings.HasPrefix(string(opt60), string(httpClient)) {
+		return ErrInvalidOption60{Opt60: string(opt60)}
 	}
 	// option 93 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
-		return fmt.Errorf("not a PXE boot request (missing option 93)")
+		return ErrOpt93Missing
 	}
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
-		return fmt.Errorf("not a PXE boot request (missing option 94)")
+		return ErrOpt94Missing
 	}
+
 	// option 97 must be have correct length or not be set
 	guid := pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)
 	switch len(guid) {
@@ -144,10 +139,10 @@ func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return fmt.Errorf("malformed client GUID (option 97), leading byte must be zero")
+			return ErrOpt97LeadingByteError
 		}
 	default:
-		return fmt.Errorf("malformed client GUID (option 97), wrong size")
+		return ErrOpt97WrongSize
 	}
 	// options 128-135 must be set but just warn for now as we're not using them
 	// these show up as required in https://www.rfc-editor.org/rfc/rfc4578.html#section-2.4
@@ -179,24 +174,24 @@ func validateDiscover(pkt *dhcpv4.DHCPv4) error {
 func validateRequest(pkt *dhcpv4.DHCPv4) error {
 	// should only be a dhcp request messsage type because a discover message type has different requirements
 	if pkt.MessageType() != dhcpv4.MessageTypeRequest {
-		return fmt.Errorf("DHCP message type is %s, must be %s", pkt.MessageType(), dhcpv4.MessageTypeRequest)
+		return ErrInvalidMsgType{Valid: dhcpv4.MessageTypeRequest, Invalid: pkt.MessageType()}
 	}
 	// option 60 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
-		return fmt.Errorf("not a PXE boot request (missing option 60)")
+		return ErrOpt60Missing
 	}
 	// option 60 must start with PXEClient
 	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
-	if !strings.HasPrefix(string(opt60), "PXEClient") && !strings.HasPrefix(string(opt60), "HTTPClient") {
-		return fmt.Errorf("not a PXE boot request (option 60 does not start with PXEClient: %v)", string(pkt.Options[60]))
+	if !strings.HasPrefix(string(opt60), string(pxeClient)) && !strings.HasPrefix(string(opt60), string(httpClient)) {
+		return ErrInvalidOption60{Opt60: string(opt60)}
 	}
 	// option 93 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
-		return fmt.Errorf("not a PXE boot request (missing option 93)")
+		return ErrOpt93Missing
 	}
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
-		return fmt.Errorf("not a PXE boot request (missing option 94)")
+		return ErrOpt94Missing
 	}
 	// option 97 must be have correct length or not be set
 	guid := pkt.GetOneOption(dhcpv4.OptionClientMachineIdentifier)
@@ -209,10 +204,10 @@ func validateRequest(pkt *dhcpv4.DHCPv4) error {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return fmt.Errorf("malformed client GUID (option 97), leading byte must be zero")
+			return ErrOpt97LeadingByteError
 		}
 	default:
-		return fmt.Errorf("malformed client GUID (option 97), wrong size")
+		return ErrOpt97WrongSize
 	}
 
 	return nil
@@ -224,7 +219,7 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	// get option 93 ; arch
 	fwt := pkt.ClientArch()
 	if len(fwt) == 0 {
-		return mach, fmt.Errorf("could not determine client architecture")
+		return mach, ErrUnknownArch
 	}
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
