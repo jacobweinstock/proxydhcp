@@ -20,9 +20,9 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	log := h.Log.WithValues("hwaddr", m.ClientHWAddr, "listenAddr", conn.LocalAddr())
 	reply, err := dhcpv4.New(dhcpv4.WithReply(m),
 		dhcpv4.WithGatewayIP(m.GatewayIPAddr),
-		dhcpv4.WithTransactionID(m.TransactionID),
 		dhcpv4.WithOptionCopied(m, dhcpv4.OptionRelayAgentInformation),
 	)
+	// TODO(jacobweinstock): check for relay info and use dhcpv4.WithRelay, then dont set broadcast below.
 	if err != nil {
 		log.Info("Generating a new transaction id failed, not a problem as we're passing one in, but if this message is showing up a lot then something could be up with github.com/insomniacslk/dhcp")
 	}
@@ -172,12 +172,21 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	if len(fwt) == 0 {
 		return mach, ErrUnknownArch
 	}
-	// TODO(jacobweinstock): handle unknown arch
-
-	// Basic architecture identification, based purely on
-	// the PXE architecture option.
-	// https://www.rfc-editor.org/errata_search.php?rfc=4578
-	mach.arch = fwt[0]
+	// TODO(jacobweinstock): handle unknown arch, better?
+	var archKnown bool
+	for _, elem := range fwt {
+		if !strings.Contains(elem.String(), "unknown") {
+			archKnown = true
+			// Basic architecture identification, based purely on
+			// the PXE architecture option.
+			// https://www.rfc-editor.org/errata_search.php?rfc=4578
+			mach.arch = elem
+			break
+		}
+	}
+	if !archKnown {
+		return mach, ErrUnknownArch
+	}
 
 	// set option 77 from received packet
 	mach.uClass = UserClass(string(pkt.GetOneOption(dhcpv4.OptionUserClassInformation)))

@@ -1,78 +1,53 @@
 //go:build linux
+
 package proxy
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/nclient4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/interfaces"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"inet.af/netaddr"
 )
 
 // utility function to set up a client and a server instance and run it in
 // background. The caller needs to call Server.Close() once finished.
 func setUpClientAndServer(t *testing.T, iface net.Interface, handler server4.Handler) (*nclient4.Client, *server4.Server) {
-	// strong assumption, I know
+	t.Helper()
 	loAddr := net.ParseIP("127.0.0.1")
 	saddr := &net.UDPAddr{
 		IP:   loAddr,
-		Port: 67,
+		Port: 6767,
 	}
 	caddr := net.UDPAddr{
 		IP:   loAddr,
-		Port: 68,
+		Port: 6868,
 	}
 	s, err := server4.NewServer("", saddr, handler)
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		err := s.Serve()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
 
 	clientConn, err := server4.NewIPv4UDPConn("", &caddr)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	c, err := nclient4.NewWithConn(clientConn, iface.HardwareAddr, nclient4.WithServerAddr(saddr))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return c, s
-}
-
-// defaultLogger is zap logr implementation.
-func defaultLogger(level string) logr.Logger {
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	switch level {
-	case "debug":
-		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	default:
-		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	}
-	zapLogger, err := config.Build()
-	if err != nil {
-		panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
-	}
-
-	return zapr.NewLogger(zapLogger)
 }
 
 func TestRedirection(t *testing.T) {
@@ -97,7 +72,6 @@ func TestRedirection(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := []Option{
-		//WithLogger(defaultLogger("debug")),
 		WithLogger(logr.Discard()),
 		WithTFTPAddr(ta),
 		WithHTTPAddr(ha),
@@ -107,27 +81,17 @@ func TestRedirection(t *testing.T) {
 	}
 	h := NewHandler(context.Background(), opts...)
 	c, s := setUpClientAndServer(t, ifaces[0], h.Redirection)
+	go func() {
+		err := s.Serve()
+		if err != nil {
+			t.Log(err)
+		}
+	}()
 	defer func() {
 		s.Close()
 	}()
 
 	xid := dhcpv4.TransactionID{0xaa, 0xbb, 0xcc, 0xdd}
-
-	modifiers := []dhcpv4.Modifier{
-		dhcpv4.WithTransactionID(xid),
-		dhcpv4.WithHwAddr(ifaces[0].HardwareAddr),
-		dhcpv4.WithGeneric(dhcpv4.OptionClassIdentifier, []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz")),
-		func(d *dhcpv4.DHCPv4) { d.UpdateOption(dhcpv4.OptClientArch(iana.EFI_X86_64)) },
-		dhcpv4.WithGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{1, 2, 1}),
-		dhcpv4.WithGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8}),
-	}
-
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	offer, err := c.DiscoverOffer(ctx, modifiers...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	wantMods := []dhcpv4.Modifier{
 		dhcpv4.WithTransactionID(xid),
 		dhcpv4.WithHwAddr(ifaces[0].HardwareAddr),
@@ -143,8 +107,78 @@ func TestRedirection(t *testing.T) {
 	want.ServerIPAddr = net.IP{127, 0, 0, 1}
 	want.OpCode = dhcpv4.OpcodeBootReply
 	want.Flags = 32768
+	tests := []struct {
+		name string
+		mods []dhcpv4.Modifier
+		want *dhcpv4.DHCPv4
+	}{
+		{
+			name: "failure DHCP option 60 not set",
+			mods: []dhcpv4.Modifier{
+				func(d *dhcpv4.DHCPv4) {
+					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover))
+				},
+			},
+		},
+		{
+			name: "failure invalid optCode",
+			mods: []dhcpv4.Modifier{
+				func(d *dhcpv4.DHCPv4) {
+					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover))
+					d.OpCode = dhcpv4.OpcodeBootReply
+				},
+			},
+		},
+		{
+			name: "failure unknown arch",
+			mods: []dhcpv4.Modifier{
+				dhcpv4.WithMessageType(dhcpv4.MessageTypeRequest),
+				dhcpv4.WithTransactionID(xid),
+				dhcpv4.WithHwAddr(ifaces[0].HardwareAddr),
+				dhcpv4.WithGeneric(dhcpv4.OptionClassIdentifier, []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz")),
+				dhcpv4.WithGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{1, 2, 1}),
+				dhcpv4.WithGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8}),
+				func(d *dhcpv4.DHCPv4) {
+					d.UpdateOption(dhcpv4.OptClientArch(37))
+				},
+			},
+		},
+		{
+			name: "success",
+			mods: []dhcpv4.Modifier{
+				dhcpv4.WithMessageType(dhcpv4.MessageTypeDiscover),
+				dhcpv4.WithTransactionID(xid),
+				dhcpv4.WithHwAddr(ifaces[0].HardwareAddr),
+				dhcpv4.WithGeneric(dhcpv4.OptionClassIdentifier, []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz")),
+				dhcpv4.WithGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{1, 2, 1}),
+				dhcpv4.WithGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8}),
+				func(d *dhcpv4.DHCPv4) {
+					d.UpdateOption(dhcpv4.OptClientArch(iana.EFI_X86_64))
+				},
+			},
+			want: want,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			var cancel context.CancelFunc
+			if tt.want != nil {
+				ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+			} else {
+				ctx, cancel = context.WithTimeout(ctx, 1*time.Second)
+			}
+			defer cancel()
 
-	if diff := cmp.Diff(want, offer); diff != "" {
-		t.Fatalf(diff)
+			got, err := c.DiscoverOffer(ctx, tt.mods...)
+			if tt.want == nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+			if tt.want != nil {
+				if diff := cmp.Diff(got, tt.want); diff != "" {
+					t.Fatalf(diff)
+				}
+			}
+		})
 	}
 }

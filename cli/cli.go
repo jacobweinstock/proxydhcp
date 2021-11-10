@@ -118,13 +118,13 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
-	rs, err := h.ServeRedirection(u)
+	rs, err := h.Server(u)
 	if err != nil {
 		return err
 	}
 
 	h2 := proxy.NewHandler(ctx, opts...)
-	bs, err := h2.ServeRedirection(u.WithPort(4011))
+	bs, err := h2.Server(u.WithPort(4011))
 	if err != nil {
 		return err
 	}

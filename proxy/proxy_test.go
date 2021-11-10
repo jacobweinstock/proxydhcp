@@ -109,7 +109,7 @@ func TestValidatePXE(t *testing.T) {
 			name: "success len(opt97) == 0",
 			mods: []dhcpv4.Modifier{
 				func(d *dhcpv4.DHCPv4) {
-					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest))
+					d.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover))
 					d.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClassIdentifier, []byte("PXEClient:Arch:xxxxx:UNDI:yyyzzz")))
 					d.UpdateOption(dhcpv4.OptClientArch(iana.EFI_X86_64))
 					d.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientNetworkInterfaceIdentifier, []byte{1, 2, 1}))

@@ -7,7 +7,7 @@ import (
 	"inet.af/netaddr"
 )
 
-func (h *Handler) ServeRedirection(addr netaddr.IPPort) (*server4.Server, error) {
+func (h *Handler) Server(addr netaddr.IPPort) (*server4.Server, error) {
 	if err := validateHandler(h); err != nil {
 		return nil, err
 	}
