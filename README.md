@@ -6,6 +6,8 @@
 > The responses given by the PXE Proxy DHCP server contain the mechanism by which the client locates the boot servers or the network addresses and descriptions of the supported, compatible boot servers."
 > -- <cite>[IBM](https://www.ibm.com/docs/en/aix/7.1?topic=protocol-preboot-execution-environment-proxy-dhcp-daemon)</cite>
 
+Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binaries and scripts. Run `proxydhcp binary` to see the supported architectures and iPXE binaries.
+
 ## Usage
 
 ```bash
