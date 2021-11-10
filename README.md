@@ -20,7 +20,7 @@ FLAGS
   -remote-ipxe ...               A url where an iPXE script is served (i.e. http://192.168.2.3:8080).
   -remote-ipxe-script auto.ipxe  The name of the iPXE script to use. used with remote-ipxe (http://192.168.2.3/<mac-addr>/auto.ipxe)
   -remote-tftp ...               IP and URI of the TFTP server providing iPXE binaries (192.168.2.5:69).
-  -user-class ...                A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.
+  -user-class ...                A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script (-remote-ipxe-script flag).
 
 ```
 
