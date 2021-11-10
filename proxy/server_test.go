@@ -10,23 +10,30 @@ func TestGetInterfaceByIP(t *testing.T) {
 	tests := []struct {
 		name   string
 		ip     string
-		wantIF string
+		wantIF []string
 	}{
 		{
 			name:   "success",
 			ip:     "127.0.0.1",
-			wantIF: "lo0",
+			wantIF: []string{"lo0", "lo"},
 		},
 		{
 			name:   "not found",
 			ip:     "1.1.1.1",
-			wantIF: "",
+			wantIF: []string{""},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if diff := cmp.Diff(getInterfaceByIP(tt.ip), tt.wantIF); diff != "" {
-				t.Fatalf(diff)
+			var diffs []string
+			for _, want := range tt.wantIF {
+				diff := cmp.Diff(getInterfaceByIP(tt.ip), want)
+				if diff != "" {
+					diffs = append(diffs, diff)
+				}
+			}
+			if len(diffs) == len(tt.wantIF) {
+				t.Fatalf("%v", diffs)
 			}
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
@@ -40,7 +41,10 @@ func TestSetMessageType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := &replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			req := &dhcpv4.DHCPv4{}
 			req.UpdateOption(dhcpv4.OptMessageType(tt.mType))
 			if err := reply.setMessageType(req); !errors.Is(tt.wantErr, err) {
@@ -79,7 +83,10 @@ func TestSetSname(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := &replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			reply.setSNAME(tt.opt60, tt.tftp, tt.http)
 			if diff := cmp.Diff(reply.ServerHostName, tt.wantServerHostName); diff != "" {
 				t.Fatalf(diff)
@@ -129,7 +136,10 @@ func TestSetBootfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := &replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			err := reply.setBootfile(tt.mach, tt.customUClass, tt.tftp, tt.ipxe, tt.iscript)
 			if err != nil {
 				if diff := cmp.Diff(err, tt.wantErr); diff != "" {

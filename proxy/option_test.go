@@ -6,6 +6,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 )
@@ -36,7 +37,10 @@ func TestSetOpt97(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			err := reply.setOpt97(tt.guid)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("setOpt97() error = %v, wantErr %v", err, tt.wantErr)
@@ -113,7 +117,10 @@ func TestSetOpt43(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			reply.setOpt43(tt.hw)
 			if diff := cmp.Diff(reply.GetOneOption(dhcpv4.OptionVendorSpecificInformation), tt.wantOpt43); diff != "" {
 				t.Fatalf(diff)
@@ -147,7 +154,10 @@ func TestSetOpt54(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reply := replyPacket{&dhcpv4.DHCPv4{}}
+			reply := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
 			opt54 := reply.setOpt54(tt.opt60, tt.tftp, tt.http)
 			if diff := cmp.Diff(opt54, tt.wantIP); diff != "" {
 				t.Fatalf(diff)

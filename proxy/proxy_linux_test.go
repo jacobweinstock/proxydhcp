@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/nclient4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
@@ -41,7 +42,7 @@ func setUpClientAndServer(t *testing.T, iface net.Interface, handler server4.Han
 	go func() {
 		err := s.Serve()
 		if err != nil {
-			fmt.Println(err)
+			t.Fatal(err)
 		}
 	}()
 
@@ -96,7 +97,8 @@ func TestRedirection(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := []Option{
-		WithLogger(defaultLogger("debug")),
+		//WithLogger(defaultLogger("debug")),
+		WithLogger(logr.Discard()),
 		WithTFTPAddr(ta),
 		WithHTTPAddr(ha),
 		WithIPXEAddr(ia),
@@ -120,13 +122,29 @@ func TestRedirection(t *testing.T) {
 		dhcpv4.WithGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8}),
 	}
 
-	t.Log("HERE")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	offer, err := c.DiscoverOffer(ctx, modifiers...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%+v", offer)
 
-	t.Fatal("TODO")
+	wantMods := []dhcpv4.Modifier{
+		dhcpv4.WithTransactionID(xid),
+		dhcpv4.WithHwAddr(ifaces[0].HardwareAddr),
+		dhcpv4.WithGeneric(dhcpv4.OptionClassIdentifier, []byte("PXEClient")),
+		dhcpv4.WithMessageType(dhcpv4.MessageTypeOffer),
+		dhcpv4.WithGeneric(dhcpv4.OptionClientMachineIdentifier, []byte{0, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8}),
+		dhcpv4.WithGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, net.IP{127, 0, 0, 1}),
+	}
+	want, _ := dhcpv4.New(wantMods...)
+	want.BootFileName = "01:02:03:04:05:06/ipxe.efi"
+	want.ServerHostName = "127.0.0.1"
+	want.ServerIPAddr = net.IP{127, 0, 0, 1}
+	want.OpCode = dhcpv4.OpcodeBootReply
+	want.Flags = 32768
+
+	if diff := cmp.Diff(want, offer); diff != "" {
+		t.Fatalf(diff)
+	}
 }

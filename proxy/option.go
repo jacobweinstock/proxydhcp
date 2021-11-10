@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"encoding/hex"
-	"fmt"
 	"net"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 )
@@ -57,6 +57,7 @@ var ArchToBootFile = map[iana.Arch]string{
 
 type replyPacket struct {
 	*dhcpv4.DHCPv4
+	log logr.Logger
 }
 
 func (r replyPacket) setOpt97(guid []byte) error {
@@ -108,7 +109,7 @@ func (r replyPacket) setOpt43(hw net.HardwareAddr) {
 		opt10, _ := hex.DecodeString("00505845") // "\x0a\x04\x00PXE"
 		pxe[9] = opt9
 		pxe[10] = opt10
-		fmt.Println("PXE: Raspberry Pi detected, adding options 9 and 10")
+		r.log.Info("raspberry Pi detected, adding options 9 and 10 to Option 43")
 	}
 
 	r.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, pxe.ToBytes()))

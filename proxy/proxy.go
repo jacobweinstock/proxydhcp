@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -31,9 +30,9 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		log.Info("Ignoring packet", "OpCode", m.OpCode)
 		return
 	}
-	rp := replyPacket{reply}
+	rp := replyPacket{DHCPv4: reply, log: log}
 
-	if err := validatePXE(m); err != nil {
+	if err := rp.validatePXE(m); err != nil {
 		log.Info("Ignoring packet: not from a PXE enabled client", "error", err)
 		return
 	}
@@ -48,7 +47,6 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		log.Info("unable to parse arch or user class: unusable packet", "error", err.Error(), "mach", mach)
 		return
 	}
-	log.Info("Got valid request to boot", "hwAddr", mach.mac, "arch", mach.arch, "userClass", mach.uClass)
 
 	// Set option 43
 	rp.setOpt43(m.ClientHWAddr)
@@ -89,7 +87,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		log.Error(err, "failed to send ProxyDHCP offer")
 		return
 	}
-	log.Info("Sent ProxyDHCP offer", "summary", reply.Summary())
+	log.Info("Sent ProxyDHCP offer", "arch", mach.arch, "userClass", mach.uClass, "messageType", rp.MessageType())
 }
 
 // validatePXE determines if the DHCP packet meets qualifications of a being a PXE enabled client.
@@ -100,7 +98,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 // 5. option 60 is set with this format: "PXEClient:Arch:xxxxx:UNDI:yyyzzz" or "HTTPClient:Arch:xxxxx:UNDI:yyyzzz"
 // 6. option 55 is set; only warn if not set
 // 7. options 128-135 are set; only warn if not set.
-func validatePXE(pkt *dhcpv4.DHCPv4) error {
+func (r replyPacket) validatePXE(pkt *dhcpv4.DHCPv4) error {
 	// only response to DISCOVER and REQUEST packets
 	if pkt.MessageType() != dhcpv4.MessageTypeDiscover && pkt.MessageType() != dhcpv4.MessageTypeRequest {
 		return ErrInvalidMsgType{Invalid: pkt.MessageType()}
@@ -108,7 +106,7 @@ func validatePXE(pkt *dhcpv4.DHCPv4) error {
 	// option 55 must be set
 	if !pkt.Options.Has(dhcpv4.OptionParameterRequestList) {
 		// just warn for the moment because we don't actually do anything with this option
-		fmt.Println("warning: missing option 55")
+		r.log.V(1).Info("warning: missing option 55")
 	}
 	// option 60 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClassIdentifier) {
@@ -123,7 +121,7 @@ func validatePXE(pkt *dhcpv4.DHCPv4) error {
 	if !pkt.Options.Has(dhcpv4.OptionClientSystemArchitectureType) {
 		return ErrOpt93Missing
 	}
-	fmt.Printf("client arch: %v\n", pkt.GetOneOption(dhcpv4.OptionClientSystemArchitectureType))
+
 	// option 94 must be set
 	if !pkt.Options.Has(dhcpv4.OptionClientNetworkInterfaceIdentifier) {
 		return ErrOpt94Missing
@@ -159,7 +157,7 @@ func validatePXE(pkt *dhcpv4.DHCPv4) error {
 	}
 	for _, opt := range opts {
 		if v := pkt.GetOneOption(opt); v == nil {
-			fmt.Printf("warning: missing option %d\n", opt)
+			r.log.V(1).Info("warning: missing option", "opt", opt)
 		}
 	}
 
@@ -174,12 +172,8 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	if len(fwt) == 0 {
 		return mach, ErrUnknownArch
 	}
-	fmt.Println(len(fwt))
-	for _, f := range fwt {
-		fmt.Println(f)
-	}
-	fmt.Println(fwt[0])
-	fmt.Println(fwt[0].String())
+	// TODO(jacobweinstock): handle unknown arch
+
 	// Basic architecture identification, based purely on
 	// the PXE architecture option.
 	// https://www.rfc-editor.org/errata_search.php?rfc=4578

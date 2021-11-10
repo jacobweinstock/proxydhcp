@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
@@ -124,7 +125,11 @@ func TestValidatePXE(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := validatePXE(m); !errors.Is(err, tt.wantErr) {
+			r := replyPacket{
+				DHCPv4: &dhcpv4.DHCPv4{},
+				log:    logr.Discard(),
+			}
+			if err := r.validatePXE(m); !errors.Is(err, tt.wantErr) {
 				t.Errorf("validateDiscover() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})
