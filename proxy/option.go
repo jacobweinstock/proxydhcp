@@ -36,6 +36,7 @@ const (
 	Tinkerbell UserClass = "Tinkerbell"
 )
 
+// ArchToBootFile maps supported hardware PXE architectures types to iPXE binary files.
 var ArchToBootFile = map[iana.Arch]string{
 	iana.INTEL_X86PC:       "undionly.kpxe",
 	iana.NEC_PC98:          "undionly.kpxe",
@@ -60,6 +61,7 @@ type replyPacket struct {
 	log logr.Logger
 }
 
+// setOpt97 does basic validation and then sets DHCP option 97 in a DHCP packet.
 func (r replyPacket) setOpt97(guid []byte) error {
 	// option 97 must be have correct length or not be set
 	switch len(guid) {

@@ -170,6 +170,7 @@ linters:
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-use-default: false
   exclude-rules:
     - path: _test\.go
       linters:

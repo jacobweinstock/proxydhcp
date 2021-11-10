@@ -1,3 +1,4 @@
+// Package proxy implements a library for handling proxyDHCP requests.
 package proxy
 
 import (
@@ -15,7 +16,7 @@ type machine struct {
 	uClass UserClass
 }
 
-// name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
+// Redirection name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
 func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {
 	log := h.Log.WithValues("hwaddr", m.ClientHWAddr, "listenAddr", conn.LocalAddr())
 	reply, err := dhcpv4.New(dhcpv4.WithReply(m),

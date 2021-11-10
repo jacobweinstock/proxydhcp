@@ -31,7 +31,7 @@ func TestInvalidMsgType(t *testing.T) {
 
 func TestInvalidOption60(t *testing.T) {
 	p := ErrInvalidOption60{Opt60: "failure"}
-	if diff := cmp.Diff(p.Error(), "not a valid PXE request (option 60 does not start with PXEClient: \"failure\")"); diff != "" {
+	if diff := cmp.Diff(p.Error(), "not a valid PXE request (option 60 does not start with PXEClient or HTTPClient: \"failure\")"); diff != "" {
 		t.Errorf(diff)
 	}
 }

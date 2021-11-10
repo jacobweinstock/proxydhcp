@@ -1,3 +1,4 @@
+// Package cmd handles cli interactions.
 package cmd
 
 import (
@@ -14,10 +15,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Execute is the entrypoint for the cli.
 func Execute(ctx context.Context) error {
 	rootCmd, rootConfig := cli.ProxyDHCP(ctx)
 	binCmd := cli.SupportedBins(ctx)
-	rootC := New(rootCmd, binCmd)
+	rootC := newCLI(rootCmd, binCmd)
 
 	if err := rootC.Parse(os.Args[1:]); err != nil {
 		return err
@@ -46,7 +48,7 @@ func defaultLogger(level string) logr.Logger {
 	return zapr.NewLogger(zapLogger)
 }
 
-func New(s ...*ffcli.Command) *ffcli.Command {
+func newCLI(s ...*ffcli.Command) *ffcli.Command {
 	appName := "proxydhcp"
 
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
@@ -54,12 +56,6 @@ func New(s ...*ffcli.Command) *ffcli.Command {
 	return &ffcli.Command{
 		ShortUsage: "proxydhcp <subcommand>",
 		FlagSet:    fs,
-		/*Options: []ff.Option{
-			ff.WithEnvVarPrefix(strings.ToUpper(appName)),
-			ff.WithConfigFileFlag("config"),
-			ff.WithAllowMissingConfigFile(true),
-			ff.WithIgnoreUndefined(true),
-		},*/
 		Exec: func(_ context.Context, _ []string) error {
 			return flag.ErrHelp
 		},

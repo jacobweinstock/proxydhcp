@@ -36,7 +36,7 @@ func TestValidateHandler(t *testing.T) {
 		{
 			name:    "invalid",
 			handler: &Handler{},
-			wantErr: ErrInvalid,
+			wantErr: ErrInvalidHandler,
 		},
 	}
 	for _, tt := range tests {

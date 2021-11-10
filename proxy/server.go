@@ -7,6 +7,7 @@ import (
 	"inet.af/netaddr"
 )
 
+// Server returns a proxy DHCP server for the Handler.
 func (h *Handler) Server(addr netaddr.IPPort) (*server4.Server, error) {
 	if err := validateHandler(h); err != nil {
 		return nil, err
@@ -27,6 +28,7 @@ func (h *Handler) Server(addr netaddr.IPPort) (*server4.Server, error) {
 	return server, nil
 }
 
+// getInterfaceByIP returns the interface with the given IP address or an empty string.
 func getInterfaceByIP(ip string) string {
 	ifaces, err := net.Interfaces()
 	if err != nil {

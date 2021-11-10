@@ -1,3 +1,4 @@
+// Package cli implements the functionality for running proxydhcp as a CLI.
 package cli
 
 import (
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator/v10"
+	"github.com/hashicorp/go-multierror"
 	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"golang.org/x/sync/errgroup"
@@ -18,6 +20,7 @@ import (
 
 const appName = "proxy"
 
+// Config is the configuration for the proxydhcp command.
 type Config struct {
 	LogLevel        string `vname:"-loglevel" validate:"oneof=debug info"`
 	TFTPAddr        string `vname:"-remote-tftp" validate:"required,hostname_port"`
@@ -29,6 +32,7 @@ type Config struct {
 	Log             logr.Logger
 }
 
+// ProxyDHCP returns the CLI command and Config struct for the proxydhcp command.
 func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 	fs := flag.NewFlagSet(appName, flag.ExitOnError)
 	cfg := &Config{
@@ -46,6 +50,7 @@ func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 	}, cfg
 }
 
+// RegisterFlags registers CLI flags for the proxydhcp comand.
 func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.LogLevel, "loglevel", "info", "log level (optional)")
 	fs.StringVar(&c.ProxyAddr, "proxy-addr", "0.0.0.0:67", "IP and port to listen on for proxydhcp requests.")
@@ -56,7 +61,8 @@ func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
 }
 
-func (c *Config) ValidateConfig() error {
+// validateConfig validates the config struct based on its struct tags.
+func (c *Config) validateConfig() error {
 	v := validator.New()
 	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
 		name := strings.SplitN(fld.Tag.Get("vname"), ",", 2)[0]
@@ -80,14 +86,15 @@ func (c *Config) ValidateConfig() error {
 
 // exec function for this command.
 func (c *Config) exec(ctx context.Context, args []string) error {
-	if err := c.ValidateConfig(); err != nil {
+	if err := c.validateConfig(); err != nil {
 		return err
 	}
 
-	return c.Run(ctx, args)
+	return c.run(ctx, args)
 }
 
-func (c *Config) Run(ctx context.Context, _ []string) error {
+// run the proxyDHCP server.
+func (c *Config) run(ctx context.Context, _ []string) error {
 	ta, err := netaddr.ParseIPPort(c.TFTPAddr)
 	if err != nil {
 		return err
@@ -148,8 +155,6 @@ func (c *Config) Run(ctx context.Context, _ []string) error {
 		return err
 	case <-ctx.Done():
 		h.Log.Info("shutting down")
-		rs.Close()
-		bs.Close()
-		return nil
+		return multierror.Append(nil, rs.Close(), bs.Close()).ErrorOrNil()
 	}
 }

@@ -17,48 +17,54 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
-type Bin struct {
+type bin struct {
 	ffcli.Command
 	jsonOut bool
 }
 
 // Option for setting optional Client values.
-type Option func(*Bin)
+type Option func(*bin)
 
+// WithName sets the name of the command.
 func WithName(name string) Option {
-	return func(cfg *Bin) {
+	return func(cfg *bin) {
 		cfg.Name = name
 	}
 }
 
+// WithShortUsage sets the short usage of the command.
 func WithShortUsage(shortUsage string) Option {
-	return func(cfg *Bin) {
+	return func(cfg *bin) {
 		cfg.ShortUsage = shortUsage
 	}
 }
 
+// WithUsageFunc sets the usage function for the command.
 func WithUsageFunc(usageFunc func(*ffcli.Command) string) Option {
-	return func(cfg *Bin) {
+	return func(cfg *bin) {
 		cfg.UsageFunc = usageFunc
 	}
 }
 
+// WithFlagSet adds a flag set to the command.
 func WithFlagSet(flagSet *flag.FlagSet) Option {
-	return func(cfg *Bin) {
+	return func(cfg *bin) {
 		cfg.FlagSet = flagSet
 	}
 }
 
+// WithOptions adds command options to the command.
 func WithOptions(opts ...ff.Option) Option {
-	return func(cfg *Bin) {
+	return func(cfg *bin) {
 		cfg.Options = append(cfg.Options, opts...)
 	}
 }
 
+// SupportedBins returns the command for printing the arch to iPXE binary mapping.
 func SupportedBins(_ context.Context, opts ...Option) *ffcli.Command {
 	name := "binary"
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
-	defaultCfg := &Bin{
+	defaultCfg := &bin{
 		Command: ffcli.Command{
 			Name:       name,
 			ShortUsage: fmt.Sprintf("%v returns the mapping of supported architecture to ipxe binary name", name),
@@ -84,12 +90,13 @@ func SupportedBins(_ context.Context, opts ...Option) *ffcli.Command {
 	}
 }
 
-func (b *Bin) RegisterFlags(fs *flag.FlagSet) {
+// RegisterFlags registers the binary command flags.
+func (b *bin) RegisterFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&b.jsonOut, "json", false, "output in json format")
 }
 
 // Execute function for this command.
-func (b *Bin) Execute(_ context.Context, _ []string) error {
+func (b *bin) Execute(_ context.Context, _ []string) error {
 	if b.jsonOut {
 		jsonOut(os.Stdout)
 	} else {
@@ -117,7 +124,7 @@ func jsonOut(w io.Writer) {
 		output = append(output, spec{
 			ID:     int(arch),
 			Arch:   arch.String(),
-			Binary: fmt.Sprintf(ipxe, "<IP>"),
+			Binary: ipxe,
 		})
 	}
 	out, err := json.Marshal(output)
