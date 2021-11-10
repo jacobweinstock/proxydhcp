@@ -12,10 +12,20 @@
 
 Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binaries and scripts. Run `proxydhcp binary` to see the supported architectures and iPXE binaries.
 
+## Installation
+
+```bash
+go install github.com/jacobweinstock/proxydhcp@v0.4.1
+```
+
+```bash
+docker pull ghcr.io/jacobweinstock/proxydhcp:0.4.1
+```
+
 ## Usage
 
 ```bash
-❯ proxydhcp proxy -h 
+❯ proxydhcp proxy -h # docker run -it --rm ghcr.io/jacobweinstock/proxydhcp:0.4.1 proxy -h
 USAGE
   proxy runs the proxyDHCP server
 
@@ -31,19 +41,11 @@ FLAGS
 ```
 
 ```bash
-❯ proxydhcp binary -h
+❯ proxydhcp binary -h # docker run -it --rm ghcr.io/jacobweinstock/proxydhcp:0.4.1 binary -h
 USAGE
   binary returns the mapping of supported architecture to ipxe binary name
 
 FLAGS
   -json=false  output in json format
 
-```
-
-## To be removed
-
-```bash
-go run main.go proxy -remote-tftp 192.168.2.225:69 -remote-http 192.168.2.225:80 -remote-ipxe http://192.168.2.225:8080 -proxy-addr 192.168.2.225
-
-go run main.go proxy -remote-tftp 192.168.2.225:69 -remote-http 192.168.2.225:80 -remote-ipxe http://192.168.2.225:8080 -proxy-addr 192.168.1.34
 ```
