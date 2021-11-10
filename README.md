@@ -1,3 +1,6 @@
+[![Test and Build](https://github.com/jacobweinstock/proxydhcp/actions/workflows/ci.yaml/badge.svg)](https://github.com/jacobweinstock/proxydhcp/actions/workflows/ci.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jacobweinstock/proxydhcp)](https://goreportcard.com/report/github.com/jacobweinstock/proxydhcp)
+
 # proxydhcp
 
 `proxydhcp` is a standalone Proxy DHCP server.
