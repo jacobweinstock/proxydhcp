@@ -15,6 +15,7 @@ Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binari
 ## Installation
 
 ```bash
+# requires Go >= 1.17
 go install github.com/jacobweinstock/proxydhcp@v0.4.1
 ```
 
