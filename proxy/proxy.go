@@ -144,8 +144,9 @@ func (r replyPacket) validatePXE(pkt *dhcpv4.DHCPv4) error {
 	default:
 		return ErrOpt97WrongSize
 	}
-	// options 128-135 must be set but just warn for now as we're not using them
+	// the spec seems to indicate that options 128-135 must be set.
 	// these show up as required in https://www.rfc-editor.org/rfc/rfc4578.html#section-2.4
+	// We're just warning on them for now as we're not using them.
 	opts := []dhcpv4.OptionCode{
 		dhcpv4.OptionTFTPServerIPAddress,
 		dhcpv4.OptionCallServerIPAddress,
