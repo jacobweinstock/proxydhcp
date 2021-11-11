@@ -9,6 +9,11 @@ builds:
     goos:
       - linux
       - darwin
+    goarch:
+      - "386"
+      - arm
+      - arm64
+      - amd64
 archives:
   - replacements:
       darwin: Darwin
@@ -51,8 +56,22 @@ dockers:
   - "--label=org.opencontainers.image.version={{.Version}}"
   - "--label=org.opencontainers.image.source={{.GitURL}}"
   - "--platform=linux/arm64"
+- image_templates:
+  - "ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}-arm"
+  use: buildx
+  goarch: arm
+  dockerfile: Dockerfile.goreleaser
+  build_flag_templates:
+  - "--pull"
+  - "--label=org.opencontainers.image.created={{.Date}}"
+  - "--label=org.opencontainers.image.name={{.ProjectName}}"
+  - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+  - "--label=org.opencontainers.image.version={{.Version}}"
+  - "--label=org.opencontainers.image.source={{.GitURL}}"
+  - "--platform=linux/arm/v6"
 docker_manifests:
 - name_template: ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}
   image_templates:
   - ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}-amd64
   - ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}-arm64
+  - ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}-arm
