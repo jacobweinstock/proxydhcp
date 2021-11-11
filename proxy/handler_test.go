@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -85,5 +86,32 @@ func TestNewHandler(t *testing.T) {
 				t.Errorf(diff)
 			}
 		})
+	}
+}
+
+func TestValidateURL(t *testing.T) {
+	v := reflect.ValueOf(1)
+	if r := validateURL(v); r != nil {
+		t.Fatal(r)
+	}
+	v = reflect.ValueOf(url.URL{
+		Host: "\x00",
+	})
+	if r := validateURL(v); r != nil {
+		t.Fatal(r)
+	}
+}
+
+func TestValidateIPPORT(t *testing.T) {
+	v := reflect.ValueOf(1)
+	if r := validateIPPORT(v); r != nil {
+		t.Fatal(r)
+	}
+}
+
+func TestValidateLogr(t *testing.T) {
+	v := reflect.ValueOf(1)
+	if r := validateLogr(v); r != nil {
+		t.Fatal(r)
 	}
 }
