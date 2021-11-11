@@ -23,5 +23,9 @@ jobs:
       run: make lint
     - name: go test
       run: make test
+    - name: generate coverage report
+      run: make cover
+    - name: Codecov
+      uses: codecov/codecov-action@v2.1.0
     - name: go build
       run: make build

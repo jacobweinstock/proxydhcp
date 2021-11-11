@@ -39,9 +39,8 @@ release: ## Build and release all binaries
 
 .PHONY: cover
 cover: ## Run unit tests with coverage report
-	go test -coverprofile=cover.out ./... || true
-	go tool cover -func=cover.out
-	rm -rf cover.out
+	go test -coverprofile=coverage.out ./... || true
+	go tool cover -func=coverage.out
 
 # BEGIN: lint-install ../proxydhcp
 # http://github.com/tinkerbell/lint-install
