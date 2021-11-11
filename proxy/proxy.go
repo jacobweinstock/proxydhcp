@@ -23,7 +23,6 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		dhcpv4.WithGatewayIP(m.GatewayIPAddr),
 		dhcpv4.WithOptionCopied(m, dhcpv4.OptionRelayAgentInformation),
 	)
-
 	if err != nil {
 		log.Info("Generating a new transaction id failed, not a problem as we're passing one in, but if this message is showing up a lot then something could be up with github.com/insomniacslk/dhcp")
 	}
