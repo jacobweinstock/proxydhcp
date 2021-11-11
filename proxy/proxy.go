@@ -23,7 +23,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		dhcpv4.WithGatewayIP(m.GatewayIPAddr),
 		dhcpv4.WithOptionCopied(m, dhcpv4.OptionRelayAgentInformation),
 	)
-	// TODO(jacobweinstock): check for relay info and use dhcpv4.WithRelay, then dont set broadcast below.
+
 	if err != nil {
 		log.Info("Generating a new transaction id failed, not a problem as we're passing one in, but if this message is showing up a lot then something could be up with github.com/insomniacslk/dhcp")
 	}
@@ -88,10 +88,12 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		log.Error(err, "failed to send ProxyDHCP offer")
 		return
 	}
+	log.V(1).Info("DHCP packet received", "pkt", *m)
 	log.Info("Sent ProxyDHCP offer", "arch", mach.arch, "userClass", mach.uClass, "messageType", rp.MessageType())
 }
 
 // validatePXE determines if the DHCP packet meets qualifications of a being a PXE enabled client.
+// http://www.pix.net/software/pxeboot/archive/pxespec.pdf
 // 1. is a DHCP discovery/request message type
 // 2. option 93 is set
 // 3. option 94 is set
@@ -144,7 +146,7 @@ func (r replyPacket) validatePXE(pkt *dhcpv4.DHCPv4) error {
 	default:
 		return ErrOpt97WrongSize
 	}
-	// the spec seems to indicate that options 128-135 must be set.
+	// the pxe spec seems to indicate that options 128-135 must be set.
 	// these show up as required in https://www.rfc-editor.org/rfc/rfc4578.html#section-2.4
 	// We're just warning on them for now as we're not using them.
 	opts := []dhcpv4.OptionCode{
@@ -181,7 +183,7 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 			archKnown = true
 			// Basic architecture identification, based purely on
 			// the PXE architecture option.
-			// https://www.rfc-editor.org/errata_search.php?rfc=4578
+			// https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#processor-architecture
 			mach.arch = elem
 			break
 		}

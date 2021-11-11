@@ -9,7 +9,7 @@
 
 > [A] Proxy DHCP server behaves much like a DHCP server by listening for ordinary DHCP client traffic and responding to certain client requests. However, unlike the DHCP server, the PXE Proxy DHCP server does not administer network addresses, and it only responds to clients that identify themselves as PXE clients.
 > The responses given by the PXE Proxy DHCP server contain the mechanism by which the client locates the boot servers or the network addresses and descriptions of the supported, compatible boot servers."
-> -- <cite>[IBM](https://www.ibm.com/docs/en/aix/7.1?topic=protocol-preboot-execution-environment-proxy-dhcp-daemon)</cite>
+> -- [IBM](https://www.ibm.com/docs/en/aix/7.1?topic=protocol-preboot-execution-environment-proxy-dhcp-daemon)
 
 Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binaries and scripts. Run `proxydhcp binary` to see the supported architectures and iPXE binaries.
 
@@ -18,16 +18,33 @@ Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binari
 ```bash
 # requires Go >= 1.17
 go install github.com/jacobweinstock/proxydhcp@v0.4.1
+# usage
+proxydhcp proxy -h
+```
+
+```bash
+# requires Go >= 1.17
+make build
+# usage
+./bin/proxydhcp-<arch> proxy -h
 ```
 
 ```bash
 docker pull ghcr.io/jacobweinstock/proxydhcp:0.4.1
+# usage
+docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.1 proxy -h
+```
+
+```bash
+docker build -t proxydhcp .
+# usage
+docker run -it --rm -p 67:67/udp -p 4011:4011/udp proxydhcp proxy -h
 ```
 
 ## Usage
 
 ```bash
-❯ proxydhcp proxy -h # docker run -it --rm ghcr.io/jacobweinstock/proxydhcp:0.4.1 proxy -h
+❯ proxydhcp proxy -h # docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.1 proxy -h
 USAGE
   proxy runs the proxyDHCP server
 

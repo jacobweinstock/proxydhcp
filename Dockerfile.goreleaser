@@ -2,5 +2,6 @@ FROM scratch
 
 COPY proxydhcp /proxydhcp
 EXPOSE 67/udp
+EXPOSE 4011/udp
 
 ENTRYPOINT ["/proxydhcp"]

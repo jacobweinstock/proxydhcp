@@ -20,7 +20,7 @@ func (h *Handler) Server(addr netaddr.IPPort) (*server4.Server, error) {
 		Port: addr.UDPAddr().Port,
 	}
 
-	// server4.NewServer() will isolate listening to a specific interface.
+	// server4.NewServer() will isolate listening to the specific interface.
 	server, err := server4.NewServer(getInterfaceByIP(addr.IP().String()), &laddr, h.Redirection)
 	if err != nil {
 		return nil, err
