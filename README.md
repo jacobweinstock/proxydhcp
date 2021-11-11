@@ -17,7 +17,7 @@ Currently, `proxydhcp` only supports booting to [iPXE](https://ipxe.org/) binari
 
 ```bash
 # requires Go >= 1.17
-go install github.com/jacobweinstock/proxydhcp@v0.4.3
+go install github.com/jacobweinstock/proxydhcp@v0.4.4
 # usage
 proxydhcp proxy -h
 ```
@@ -30,9 +30,9 @@ make build
 ```
 
 ```bash
-docker pull ghcr.io/jacobweinstock/proxydhcp:0.4.3
+docker pull ghcr.io/jacobweinstock/proxydhcp:0.4.4
 # usage
-docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.3 proxy -h
+docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.4 proxy -h
 ```
 
 ```bash
@@ -44,7 +44,7 @@ docker run -it --rm -p 67:67/udp -p 4011:4011/udp proxydhcp proxy -h
 ## Usage
 
 ```bash
-❯ proxydhcp proxy -h # docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.3 proxy -h
+❯ proxydhcp proxy -h # docker run -it --rm -p 67:67/udp -p 4011:4011/udp ghcr.io/jacobweinstock/proxydhcp:0.4.4 proxy -h
 USAGE
   proxy runs the proxyDHCP server
 
@@ -60,7 +60,7 @@ FLAGS
 ```
 
 ```bash
-❯ proxydhcp binary -h # docker run -it --rm ghcr.io/jacobweinstock/proxydhcp:0.4.3 binary -h
+❯ proxydhcp binary -h # docker run -it --rm ghcr.io/jacobweinstock/proxydhcp:0.4.4 binary -h
 USAGE
   binary returns the mapping of supported architecture to ipxe binary name
 

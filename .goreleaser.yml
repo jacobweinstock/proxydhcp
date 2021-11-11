@@ -60,6 +60,7 @@ dockers:
   - "ghcr.io/jacobweinstock/proxydhcp:{{ .Version }}-arm"
   use: buildx
   goarch: arm
+  goarm: "6"
   dockerfile: Dockerfile.goreleaser
   build_flag_templates:
   - "--pull"
