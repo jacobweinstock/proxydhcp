@@ -5,10 +5,9 @@ import (
 	"flag"
 
 	"github.com/imdario/mergo"
-	"github.com/jacobweinstock/ipxe"
+	"github.com/jacobweinstock/proxydhcp/authz/tink"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"github.com/pkg/errors"
-	"inet.af/netaddr"
+	"github.com/tinkerbell/tink/protos/hardware"
 )
 
 const tinkCLI = "tink"
@@ -29,13 +28,11 @@ type TinkCfg struct {
 	Tink string `validate:"required"`
 }
 
-func Tink() (*ffcli.Command, *TinkCfg) {
+// Tink is the subcommand that communicates with Tink server for authorizing PXE boot requests.
+func Tink() *ffcli.Command {
 	cfg := &TinkCfg{}
 	fs := flag.NewFlagSet(tinkCLI, flag.ExitOnError)
 	RegisterFlagsTink(cfg, fs)
-	sf := fs.Lookup("tink")
-	nfs := flag.NewFlagSet("testing", flag.ExitOnError)
-	nfs.StringVar(&cfg.Tink, sf.Name, sf.DefValue, sf.Usage)
 
 	return &ffcli.Command{
 		Name:       tinkCLI,
@@ -44,54 +41,36 @@ func Tink() (*ffcli.Command, *TinkCfg) {
 		Exec: func(ctx context.Context, _ []string) error {
 			return cfg.Exec(ctx, nil)
 		},
-	}, cfg
+	}
 }
 
+// RegisterFlagsTink registers the flags for the tink subcommand.
 func RegisterFlagsTink(cfg *TinkCfg, fs *flag.FlagSet) {
-	fs.StringVar(&cfg.TFTPAddr, "tftp-addr", "0.0.0.0:69", "IP and port to listen on for TFTP.")
-	fs.StringVar(&cfg.HTTPAddr, "http-addr", "0.0.0.0:8080", "IP and port to listen on for HTTP.")
-	fs.StringVar(&cfg.LogLevel, "loglevel", "info", "log level (optional)")
+	RegisterFlags(&cfg.Config, fs)
 	fs.StringVar(&cfg.Tink, "tink", "", "tink server URL (required)")
 	description := "(file:///path/to/cert/tink.cert, http://tink-server:42114/cert, boolean (false - no TLS, true - tink has a cert from known CA) (optional)"
 	fs.StringVar(&cfg.TLS, "tls", "false", "tink server TLS "+description)
 }
 
+// Exec is the execution function for the tink subcommand.
 func (t *TinkCfg) Exec(ctx context.Context, _ []string) error {
 	defaults := TinkCfg{
 		Config: Config{
-			TFTPAddr: "0.0.0.0:69",
-			HTTPAddr: "0.0.0.0:8080",
 			LogLevel: "info",
 			Log:      defaultLogger("info"),
 		},
 	}
-	err := mergo.Merge(t, defaults)
+	err := mergo.Merge(t, defaults, mergo.WithTransformers(logger{}))
 	if err != nil {
 		return err
-	}
-	if t.Log.GetSink() == nil {
-		t.Log = defaultLogger(t.LogLevel)
 	}
 	t.Log.Info("starting ipxe", "tftp-addr", t.TFTPAddr, "http-addr", t.HTTPAddr)
-	/*gc, err := tink.SetupClient(ctx, t.Log, t.TLS, t.Tink)
+	gc, err := tink.SetupClient(ctx, t.Log, t.TLS, t.Tink)
 	if err != nil {
 		return err
-	}*/
-	//c := hardware.NewHardwareServiceClient(gc)
-	//tb := &tink.Tinkerbell{Client: c, Log: t.Log}
-	tAddr, err := netaddr.ParseIPPort(t.TFTPAddr)
-	if err != nil {
-		return errors.Wrapf(err, "could not parse tftp-addr %q", t.TFTPAddr)
 	}
-	hAddr, err := netaddr.ParseIPPort(t.HTTPAddr)
-	if err != nil {
-		return errors.Wrapf(err, "could not parse http-addr %q", t.HTTPAddr)
-	}
-	cfg := ipxe.Config{
-		TFTP: ipxe.TFTP{Addr: tAddr},
-		HTTP: ipxe.HTTP{Addr: hAddr},
-		Log:  t.Log,
-	}
-
-	return cfg.Serve(ctx)
+	c := hardware.NewHardwareServiceClient(gc)
+	tb := &tink.Tinkerbell{Client: c, Log: t.Log}
+	t.Config.Authz = tb
+	return t.Config.run(ctx, nil)
 }

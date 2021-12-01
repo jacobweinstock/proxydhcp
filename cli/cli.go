@@ -49,7 +49,7 @@ func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 		ShortUsage:  fmt.Sprintf("%v runs the proxyDHCP server", appName),
 		FlagSet:     fs,
 		Exec:        cfg.exec,
-		Subcommands: []*ffcli.Command{File()},
+		Subcommands: []*ffcli.Command{File(), Tink()},
 	}, cfg
 }
 
