@@ -30,6 +30,7 @@ type Config struct {
 	ProxyAddr       string `vname:"-proxy-addr" validate:"required,ip"`
 	CustomUserClass string
 	Log             logr.Logger
+	Authz           proxy.Allower
 }
 
 // ProxyDHCP returns the CLI command and Config struct for the proxydhcp command.
@@ -38,15 +39,17 @@ func ProxyDHCP(_ context.Context) (*ffcli.Command, *Config) {
 	cfg := &Config{
 		Log:       logr.Discard(),
 		ProxyAddr: "0.0.0.0:67",
+		Authz:     proxy.AllowAll{},
 	}
 
 	RegisterFlags(cfg, fs)
 
 	return &ffcli.Command{
-		Name:       appName,
-		ShortUsage: fmt.Sprintf("%v runs the proxyDHCP server", appName),
-		FlagSet:    fs,
-		Exec:       cfg.exec,
+		Name:        appName,
+		ShortUsage:  fmt.Sprintf("%v runs the proxyDHCP server", appName),
+		FlagSet:     fs,
+		Exec:        cfg.exec,
+		Subcommands: []*ffcli.Command{File()},
 	}, cfg
 }
 
@@ -112,6 +115,7 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 		proxy.WithTFTPAddr(ta),
 		proxy.WithHTTPAddr(ha),
 		proxy.WithIPXEAddr(ia),
+		proxy.WithAllower(c.Authz),
 	}
 	if c.IPXEScript == "" {
 		opts = append(opts, proxy.WithIPXEScript(c.IPXEScript))

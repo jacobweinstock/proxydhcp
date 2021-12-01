@@ -76,6 +76,7 @@ func TestNewHandler(t *testing.T) {
 				IPXEAddr:   &url.URL{Scheme: "http", Host: "192.168.2.4"},
 				IPXEScript: "auto.ipxe",
 				UserClass:  "test",
+				Allower:    AllowAll{},
 			},
 		},
 	}

@@ -17,9 +17,9 @@ import (
 
 // Execute is the entrypoint for the cli.
 func Execute(ctx context.Context) error {
-	rootCmd, rootConfig := cli.ProxyDHCP(ctx)
-	binCmd := cli.SupportedBins(ctx)
-	rootC := newCLI(rootCmd, binCmd)
+	rootCMD, rootConfig := cli.ProxyDHCP(ctx)
+	binCMD := cli.SupportedBins(ctx)
+	rootC := newCLI(rootCMD, binCMD)
 
 	if err := rootC.Parse(os.Args[1:]); err != nil {
 		return err

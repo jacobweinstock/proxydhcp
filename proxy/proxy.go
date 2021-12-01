@@ -2,6 +2,7 @@
 package proxy
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
@@ -81,6 +82,10 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		log.Info("Ignoring packet", "error", err.Error())
 		return
 	}
+	// check the backend, if PXE is NOT allowed, set the boot file name to "/<mac address>/not-allowed"
+	if !h.Allower.Allow(h.Ctx, mach.mac) {
+		rp.BootFileName = fmt.Sprintf("/%v/not-allowed", mach.mac)
+	}
 
 	// send the DHCP packet
 	if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
@@ -88,7 +93,7 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 		return
 	}
 	log.V(1).Info("DHCP packet received", "pkt", *m)
-	log.Info("Sent ProxyDHCP offer", "arch", mach.arch, "userClass", mach.uClass, "messageType", rp.MessageType())
+	log.Info("Sent ProxyDHCP message", "arch", mach.arch, "userClass", mach.uClass, "receivedMsgType", m.MessageType(), "replyMsgType", rp.MessageType(), "unicast", rp.IsUnicast(), "peer", peer, "bootfile", rp.BootFileName)
 }
 
 // validatePXE determines if the DHCP packet meets qualifications of a being a PXE enabled client.
