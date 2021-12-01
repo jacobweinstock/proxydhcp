@@ -46,21 +46,6 @@ func WithLogger(l logr.Logger) Option {
 	return func(h *Handler) { h.Log = l }
 }
 
-// WithTFTPAddr sets the TFTP address for the Handler struct.
-func WithTFTPAddr(ta netaddr.IPPort) Option {
-	return func(h *Handler) { h.TFTPAddr = ta }
-}
-
-// WithHTTPAddr sets the HTTP address for the Handler struct.
-func WithHTTPAddr(ha netaddr.IPPort) Option {
-	return func(h *Handler) { h.HTTPAddr = ha }
-}
-
-// WithIPXEAddr sets the IPXE address for the Handler struct.
-func WithIPXEAddr(u *url.URL) Option {
-	return func(h *Handler) { h.IPXEAddr = u }
-}
-
 // WithIPXEScript sets the IPXE script for the Handler struct.
 func WithIPXEScript(s string) Option {
 	return func(h *Handler) { h.IPXEScript = s }
@@ -85,10 +70,13 @@ func (a AllowAll) Allow(_ context.Context, _ net.HardwareAddr) bool {
 }
 
 // NewHandler creates a new Handler struct. A few defaults are set here, but can be overridden by passing in options.
-func NewHandler(ctx context.Context, opts ...Option) *Handler {
+func NewHandler(ctx context.Context, tAddr, hAddr netaddr.IPPort, ipxeAddr *url.URL, opts ...Option) *Handler {
 	defaultHandler := &Handler{
 		Ctx:        ctx,
 		Log:        logr.Discard(),
+		TFTPAddr:   tAddr,
+		HTTPAddr:   hAddr,
+		IPXEAddr:   ipxeAddr,
 		IPXEScript: "auto.ipxe",
 		Allower:    AllowAll{},
 	}

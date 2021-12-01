@@ -67,16 +67,10 @@ func TestServer(t *testing.T) {
 			},
 			addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 7679),
 		},
-		{
-			name:    "failure invalid handler struct",
-			handler: &Handler{},
-			addr:    netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 7676),
-			wantErr: ErrInvalidHandler,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := tt.handler.Server(tt.addr)
+			_, err := Server(context.Background(), tt.addr, nil, tt.handler.Redirection)
 			if !errors.Is(err, tt.wantErr) {
 				if err != nil {
 					if diff := cmp.Diff(err.Error(), tt.wantErr.Error()); diff != "" {

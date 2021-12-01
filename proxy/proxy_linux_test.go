@@ -73,13 +73,10 @@ func TestRedirection(t *testing.T) {
 	}
 	opts := []Option{
 		WithLogger(logr.Discard()),
-		WithTFTPAddr(ta),
-		WithHTTPAddr(ha),
-		WithIPXEAddr(ia),
 		WithIPXEScript("auto.ipxe"),
 		WithUserClass("Tinkerbell"),
 	}
-	h := NewHandler(context.Background(), opts...)
+	h := NewHandler(context.Background(), ta, ha, ia, opts...)
 	c, s := setUpClientAndServer(t, ifaces[0], h.Redirection)
 	go func() {
 		err := s.Serve()

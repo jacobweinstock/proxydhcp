@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
@@ -8,24 +9,17 @@ import (
 )
 
 // Server returns a proxy DHCP server for the Handler.
-func (h *Handler) Server(addr netaddr.IPPort) (*server4.Server, error) {
-	if err := validateHandler(h); err != nil {
-		return nil, err
-	}
-	h.Log = h.Log.WithName("proxy")
-
-	// for broadcast traffic we need to listen on all IPs
-	laddr := net.UDPAddr{
-		IP:   net.ParseIP("0.0.0.0"),
-		Port: addr.UDPAddr().Port,
+func Server(ctx context.Context, addr netaddr.IPPort, conn *net.UDPAddr, h server4.Handler) (*server4.Server, error) {
+	if conn == nil {
+		// for broadcast traffic we need to listen on all IPs
+		conn = &net.UDPAddr{
+			IP:   net.ParseIP("0.0.0.0"),
+			Port: addr.UDPAddr().Port,
+		}
 	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
-	server, err := server4.NewServer(getInterfaceByIP(addr.IP().String()), &laddr, h.Redirection)
-	if err != nil {
-		return nil, err
-	}
-	return server, nil
+	return server4.NewServer(getInterfaceByIP(addr.IP().String()), conn, h)
 }
 
 // getInterfaceByIP returns the interface with the given IP address or an empty string.

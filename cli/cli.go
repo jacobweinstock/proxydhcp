@@ -112,30 +112,23 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 	}
 	opts := []proxy.Option{
 		proxy.WithLogger(c.Log),
-		proxy.WithTFTPAddr(ta),
-		proxy.WithHTTPAddr(ha),
-		proxy.WithIPXEAddr(ia),
 		proxy.WithAllower(c.Authz),
+		proxy.WithIPXEScript(c.IPXEScript),
+		proxy.WithUserClass(c.CustomUserClass),
 	}
-	if c.IPXEScript == "" {
-		opts = append(opts, proxy.WithIPXEScript(c.IPXEScript))
-	}
-	if c.CustomUserClass != "" {
-		opts = append(opts, proxy.WithUserClass(c.CustomUserClass))
-	}
-	h := proxy.NewHandler(ctx, opts...)
+	h := proxy.NewHandler(ctx, ta, ha, ia, opts...)
 
 	u, err := netaddr.ParseIPPort(c.ProxyAddr + ":67")
 	if err != nil {
 		return err
 	}
-	rs, err := h.Server(u)
+	rs, err := proxy.Server(ctx, u, nil, h.Redirection)
 	if err != nil {
 		return err
 	}
 
-	h2 := proxy.NewHandler(ctx, opts...)
-	bs, err := h2.Server(u.WithPort(4011))
+	h2 := proxy.NewHandler(ctx, ta, ha, ia, opts...)
+	bs, err := proxy.Server(ctx, u.WithPort(4011), nil, h2.Redirection)
 	if err != nil {
 		return err
 	}
