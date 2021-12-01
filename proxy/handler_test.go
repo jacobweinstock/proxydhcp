@@ -63,7 +63,8 @@ func TestNewHandler(t *testing.T) {
 		want *Handler
 	}{
 		{
-			name: "good", args: args{ctx: context.Background(),
+			name: "good", args: args{
+				ctx: context.Background(),
 				opts: []Option{
 					WithLogger(logr.Discard()),
 					WithIPXEScript("auto.ipxe"),

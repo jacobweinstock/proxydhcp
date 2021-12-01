@@ -9,7 +9,7 @@ import (
 )
 
 // Server returns a proxy DHCP server for the Handler.
-func Server(ctx context.Context, addr netaddr.IPPort, conn *net.UDPAddr, h server4.Handler) (*server4.Server, error) {
+func Server(_ context.Context, addr netaddr.IPPort, conn *net.UDPAddr, h server4.Handler) (*server4.Server, error) {
 	if conn == nil {
 		// for broadcast traffic we need to listen on all IPs
 		conn = &net.UDPAddr{
