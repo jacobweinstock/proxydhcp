@@ -129,6 +129,13 @@ func TestSetBootfile(t *testing.T) {
 			wantErr:          nil,
 		},
 		{
+			name:             "success - httpClient full http URL",
+			mach:             machine{mac: mac, arch: iana.EFI_ARM32_HTTP, cType: httpClient},
+			ipxe:             &url.URL{Scheme: "http", Host: "127.0.0.1"},
+			wantBootFileName: fmt.Sprintf("http://127.0.0.1/%v/snp.efi", mac.String()),
+			wantErr:          nil,
+		},
+		{
 			name:    "failure - no architecture found",
 			mach:    machine{mac: mac, arch: iana.UBOOT_ARM32},
 			wantErr: ErrArchNotFound{Arch: iana.UBOOT_ARM32},

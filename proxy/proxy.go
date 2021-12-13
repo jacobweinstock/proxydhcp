@@ -15,6 +15,7 @@ type machine struct {
 	mac    net.HardwareAddr
 	arch   iana.Arch
 	uClass UserClass
+	cType  clientType
 }
 
 // Redirection name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
@@ -172,7 +173,7 @@ func (r replyPacket) validatePXE(pkt *dhcpv4.DHCPv4) error {
 	return nil
 }
 
-// processMachine takes a DHCP packet and returns a populated machine.
+// processMachine takes a DHCP packet and returns a populated machine struct.
 func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	mach := machine{}
 	// get option 93 ; arch
@@ -198,6 +199,13 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 
 	// set option 77 from received packet
 	mach.uClass = UserClass(string(pkt.GetOneOption(dhcpv4.OptionUserClassInformation)))
+	// set the client type based off of option 60
+	opt60 := pkt.GetOneOption(dhcpv4.OptionClassIdentifier)
+	if strings.HasPrefix(string(opt60), string(pxeClient)) {
+		mach.cType = pxeClient
+	} else if strings.HasPrefix(string(opt60), string(httpClient)) {
+		mach.cType = httpClient
+	}
 	mach.mac = pkt.ClientHWAddr
 
 	return mach, nil
