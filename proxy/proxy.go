@@ -63,8 +63,12 @@ func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCP
 	reply.SetBroadcast()
 
 	// Set option 60
-	// The PXE spec says the server should identify itself as a PXEClient
-	reply.UpdateOption(dhcpv4.OptClassIdentifier(string(pxeClient)))
+	// The PXE spec says the server should identify itself as a PXEClient or HTTPCient
+	if opt60 := m.GetOneOption(dhcpv4.OptionClassIdentifier); strings.HasPrefix(string(opt60), string(pxeClient)) {
+		reply.UpdateOption(dhcpv4.OptClassIdentifier(string(pxeClient)))
+	} else {
+		reply.UpdateOption(dhcpv4.OptClassIdentifier(string(httpClient)))
+	}
 
 	// Set option 54
 	opt54 := rp.setOpt54(m.GetOneOption(dhcpv4.OptionClassIdentifier), h.TFTPAddr.UDPAddr().IP, h.HTTPAddr.TCPAddr().IP)
