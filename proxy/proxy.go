@@ -2,12 +2,18 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/imdario/mergo"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
+	"inet.af/netaddr"
 )
 
 // machine describes a device that is requesting a network boot.
@@ -18,8 +24,21 @@ type machine struct {
 	cType  clientType
 }
 
-// Redirection name comes from section 2.5 of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
-func (h *Handler) Redirection(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {
+// Handle is responsible for responding to netboot requests.
+// It endeavors to satisfy the spec from section 2.5(?) of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
+func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {
+	ctx, done := context.WithTimeout(context.Background(), time.Minute*2)
+	defer done()
+	defaults := &Handler{
+		Log: logr.Discard(),
+		Ctx: ctx,
+	}
+
+	if err := mergo.Merge(h, defaults); err != nil {
+		h.Log.Error(err, "unable to merge defaults")
+		return
+	}
+
 	log := h.Log.WithValues("hwaddr", m.ClientHWAddr, "listenAddr", conn.LocalAddr())
 	reply, err := dhcpv4.New(dhcpv4.WithReply(m),
 		dhcpv4.WithGatewayIP(m.GatewayIPAddr),
@@ -213,4 +232,49 @@ func processMachine(pkt *dhcpv4.DHCPv4) (machine, error) {
 	mach.mac = pkt.ClientHWAddr
 
 	return mach, nil
+}
+
+// Transformer for merging the netaddr.IPPort and logr.Logger structs.
+func (h *Handler) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
+	switch typ {
+	case reflect.TypeOf(logr.Logger{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				isZero := dst.MethodByName("GetSink")
+				result := isZero.Call(nil)
+				if result[0].IsNil() {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(netaddr.IPPort{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				isZero := dst.MethodByName("IsZero")
+				result := isZero.Call([]reflect.Value{})
+				if result[0].Bool() {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(netaddr.IP{}):
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				isZero := dst.MethodByName("IsZero")
+				result := isZero.Call([]reflect.Value{})
+				if result[0].Bool() {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	case reflect.TypeOf(h.Allower):
+		return func(dst, src reflect.Value) error {
+			return nil
+		}
+	}
+
+	return nil
 }

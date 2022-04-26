@@ -42,7 +42,7 @@ func TestValidateHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateHandler(tt.handler); !errors.Is(err, tt.wantErr) {
+			if err := ValidateHandler(tt.handler); !errors.Is(err, tt.wantErr) {
 				t.Fatalf("validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

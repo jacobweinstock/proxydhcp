@@ -1,5 +1,5 @@
 // Package cmd handles cli interactions.
-package cmd
+package main
 
 import (
 	"context"

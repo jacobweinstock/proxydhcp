@@ -70,7 +70,7 @@ func TestServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Server(context.Background(), tt.addr, nil, tt.handler.Redirection)
+			_, err := Server(context.Background(), tt.addr, nil, tt.handler.Handle)
 			if !errors.Is(err, tt.wantErr) {
 				if err != nil {
 					if diff := cmp.Diff(err.Error(), tt.wantErr.Error()); diff != "" {

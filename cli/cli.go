@@ -122,13 +122,13 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 	if err != nil {
 		return err
 	}
-	rs, err := proxy.Server(ctx, u, nil, h.Redirection)
+	rs, err := proxy.Server(ctx, u, nil, h.Handle)
 	if err != nil {
 		return err
 	}
 
 	h2 := proxy.NewHandler(ctx, ta, ha, ia, opts...)
-	bs, err := proxy.Server(ctx, u.WithPort(4011), nil, h2.Redirection)
+	bs, err := proxy.Server(ctx, u.WithPort(4011), nil, h2.Handle)
 	if err != nil {
 		return err
 	}

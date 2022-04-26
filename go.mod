@@ -3,14 +3,14 @@ module github.com/jacobweinstock/proxydhcp
 go 1.17
 
 require (
-	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr v1.2.2
+	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.12
 	github.com/insomniacslk/dhcp v0.0.0-20211026125128-ad197bcd36fd
-	github.com/jinzhu/copier v0.3.4
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/pkg/errors v0.9.1
