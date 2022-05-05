@@ -3,7 +3,7 @@ module github.com/jacobweinstock/proxydhcp
 go 1.17
 
 require (
-	github.com/go-logr/logr v1.2.2
+	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-playground/validator/v10 v10.9.0
@@ -16,6 +16,7 @@ require (
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/pkg/errors v0.9.1
 	github.com/tinkerbell/tink v0.0.0-20211124221928-058a1c95a95b
+	github.com/tonglil/buflogr v0.0.0-20220413082439-d4c2784244cd
 	go.uber.org/zap v1.19.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/grpc v1.42.0
