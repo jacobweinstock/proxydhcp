@@ -8,6 +8,7 @@ require (
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/google/go-cmp v0.5.6
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/imdario/mergo v0.3.12
 	github.com/insomniacslk/dhcp v0.0.0-20211026125128-ad197bcd36fd

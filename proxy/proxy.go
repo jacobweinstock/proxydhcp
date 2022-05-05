@@ -2,15 +2,12 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/imdario/mergo"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 	"inet.af/netaddr"
@@ -27,7 +24,7 @@ type machine struct {
 // Handle is responsible for responding to netboot requests.
 // It endeavors to satisfy the spec from section 2.5(?) of http://www.pix.net/software/pxeboot/archive/pxespec.pdf
 func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {
-	ctx, done := context.WithTimeout(context.Background(), time.Minute*2)
+/*	ctx, done := context.WithTimeout(context.Background(), time.Minute*2)
 	defer done()
 	defaults := &Handler{
 		Log: logr.Discard(),
@@ -38,7 +35,7 @@ func (h *Handler) Handle(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4) {
 		h.Log.Error(err, "unable to merge defaults")
 		return
 	}
-
+*/
 	log := h.Log.WithValues("hwaddr", m.ClientHWAddr, "listenAddr", conn.LocalAddr())
 	reply, err := dhcpv4.New(dhcpv4.WithReply(m),
 		dhcpv4.WithGatewayIP(m.GatewayIPAddr),
