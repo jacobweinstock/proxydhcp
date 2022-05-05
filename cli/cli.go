@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-playground/validator/v10"
 	"github.com/hashicorp/go-multierror"
+	"github.com/jacobweinstock/proxydhcp"
 	"github.com/jacobweinstock/proxydhcp/proxy"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"golang.org/x/sync/errgroup"
@@ -117,30 +118,29 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 		proxy.WithUserClass(c.CustomUserClass),
 	}
 	h := proxy.NewHandler(ctx, ta, ha, ia, opts...)
-
 	u, err := netaddr.ParseIPPort(c.ProxyAddr + ":67")
 	if err != nil {
 		return err
 	}
-	rs, err := proxy.Server(ctx, u, nil, h.Handle)
-	if err != nil {
-		return err
-	}
+	srv := proxydhcp.Server{Addr: u, Log: c.Log}
 
 	h2 := proxy.NewHandler(ctx, ta, ha, ia, opts...)
-	bs, err := proxy.Server(ctx, u.WithPort(4011), nil, h2.Handle)
+	u2, err := netaddr.ParseIPPort(c.ProxyAddr + ":4011")
 	if err != nil {
 		return err
 	}
+	srv2 := proxydhcp.Server{Addr: u2, Log: c.Log}
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		h.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:67")
-		return rs.Serve()
+
+		return srv.ListenAndServe(ctx, h)
 	})
 	g.Go(func() error {
 		h.Log.Info("starting proxydhcp", "addr1", c.ProxyAddr, "addr2", "0.0.0.0:4011")
-		return bs.Serve()
+
+		return srv2.ListenAndServe(ctx, h2)
 	})
 
 	errCh := make(chan error)
@@ -152,6 +152,7 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 		return err
 	case <-ctx.Done():
 		h.Log.Info("shutting down")
-		return multierror.Append(nil, rs.Close(), bs.Close()).ErrorOrNil()
+
+		return multierror.Append(nil, srv.Shutdown(), srv2.Shutdown()).ErrorOrNil()
 	}
 }

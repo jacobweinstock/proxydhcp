@@ -46,7 +46,7 @@ func (r replyPacket) setBootfile(mach machine, customUC string, tftp netaddr.IPP
 	// if the "iPXE" user class is found it means we arent in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
 	switch { // order matters here.
 	case mach.uClass == Tinkerbell, (customUC != "" && mach.uClass == UserClass(customUC)): // this case gets us out of an ipxe boot loop.
-		bootfile = ipxe.String() //fmt.Sprintf("%s/%s", ipxe, iscript)
+		bootfile = fmt.Sprintf("%s/%s", ipxe, iscript) // ipxe.String()
 	case mach.cType == httpClient: // Check the client type from option 60.
 		bootfile = fmt.Sprintf("%s/%s", ipxe, bin)
 	case mach.uClass == IPXE:

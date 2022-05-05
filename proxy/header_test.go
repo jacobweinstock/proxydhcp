@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"testing"
@@ -97,8 +96,7 @@ func TestSetSname(t *testing.T) {
 
 func TestSetBootfile(t *testing.T) {
 	mac := net.HardwareAddr{0x00, 0x01, 0x02, 0x03, 0x04, 0x05}
-	tests := []struct {
-		name             string
+	tests := map[string]struct {
 		mach             machine
 		customUClass     string
 		tftp             netaddr.IPPort
@@ -107,42 +105,37 @@ func TestSetBootfile(t *testing.T) {
 		wantBootFileName string
 		wantErr          error
 	}{
-		{
-			name:             "success - full HTTP location",
+		"success - full HTTP location": {
 			mach:             machine{mac: mac, arch: iana.EFI_X86_64_HTTP, uClass: Tinkerbell},
 			ipxe:             &url.URL{Scheme: "http", Host: "192.168.2.3"},
 			iscript:          "auto.ipxe",
-			wantBootFileName: fmt.Sprintf("http://192.168.2.3/%v/auto.ipxe", mac.String()),
+			wantBootFileName: "http://192.168.2.3/auto.ipxe",
 			wantErr:          nil,
 		},
-		{
-			name:             "success - full TFTP location",
+		"success - full TFTP location": {
 			mach:             machine{mac: mac, arch: iana.EFI_X86_64, uClass: IPXE},
 			tftp:             netaddr.IPPortFrom(netaddr.IPv4(1, 2, 3, 4), 69),
-			wantBootFileName: fmt.Sprintf("tftp://1.2.3.4:69/%v/ipxe.efi", mac.String()),
+			wantBootFileName: "tftp://1.2.3.4:69/ipxe.efi",
 			wantErr:          nil,
 		},
-		{
-			name:             "success - mac/filename URI",
+		"success - mac/filename URI": {
 			mach:             machine{mac: mac, arch: iana.EFI_X86_64},
-			wantBootFileName: fmt.Sprintf("%v/ipxe.efi", mac.String()),
+			wantBootFileName: "ipxe.efi",
 			wantErr:          nil,
 		},
-		{
-			name:             "success - httpClient full http URL",
+		"success - httpClient full http URL": {
 			mach:             machine{mac: mac, arch: iana.EFI_ARM32_HTTP, cType: httpClient},
 			ipxe:             &url.URL{Scheme: "http", Host: "127.0.0.1"},
-			wantBootFileName: fmt.Sprintf("http://127.0.0.1/%v/snp.efi", mac.String()),
+			wantBootFileName: "http://127.0.0.1/snp.efi",
 			wantErr:          nil,
 		},
-		{
-			name:    "failure - no architecture found",
+		"failure - no architecture found": {
 			mach:    machine{mac: mac, arch: iana.UBOOT_ARM32},
 			wantErr: ErrArchNotFound{Arch: iana.UBOOT_ARM32},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			reply := replyPacket{
 				DHCPv4: &dhcpv4.DHCPv4{},
 				log:    logr.Discard(),
@@ -153,7 +146,7 @@ func TestSetBootfile(t *testing.T) {
 					t.Fatalf(diff)
 				}
 			}
-			if diff := cmp.Diff(reply.BootFileName, tt.wantBootFileName); diff != "" {
+			if diff := cmp.Diff(reply.DHCPv4.BootFileName, tt.wantBootFileName); diff != "" {
 				t.Fatalf(diff)
 			}
 		})
