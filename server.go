@@ -15,11 +15,7 @@ import (
 	"inet.af/netaddr"
 )
 
-var ErrNoHandler = fmt.Errorf("no handler specified. please specify a handler")
-
-// ErrServerClosed is returned by the Server's Serve, ServeTLS, ListenAndServe,
-// and ListenAndServeTLS methods after a call to Shutdown or Close.
-var ErrServerClosed = errors.New("dhcp: Server closed")
+var ErrNoConn = errors.New("no connection specified")
 
 type Server struct {
 	Log     logr.Logger
@@ -44,11 +40,11 @@ func (s *Server) Serve(ctx context.Context, c net.PacketConn) error {
 		s.handler = &Noop{}
 	}
 	if c == nil {
-		return fmt.Errorf("no connection specified")
+		return ErrNoConn
 	}
 	dhcp, err := server4.NewServer("", nil, s.handler.Handle, server4.WithConn(c))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create dhcpv4 server: %w", err)
 	}
 	s.srvMu.Lock()
 	s.srv = dhcp
@@ -67,7 +63,7 @@ func (s *Server) ListenAndServe(ctx context.Context, h Handler) error {
 		Addr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
 	}
 	if err := mergo.Merge(s, defaults, mergo.WithTransformers(s)); err != nil {
-		return err
+		return fmt.Errorf("failed to merge defaults: %w", err)
 	}
 
 	addr := &net.UDPAddr{
@@ -76,7 +72,7 @@ func (s *Server) ListenAndServe(ctx context.Context, h Handler) error {
 	}
 	conn, err := server4.NewIPv4UDPConn("en8", addr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create udp connection: %w", err)
 	}
 
 	return s.Serve(ctx, conn)
@@ -90,29 +86,6 @@ func (s *Server) Shutdown() error {
 	}
 
 	return s.srv.Close()
-}
-
-// getInterfaceByIP returns the interface with the given IP address or an empty string.
-func getInterfaceByIP(ip string) string {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-	for _, iface := range ifaces {
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok {
-				if ipnet.IP.String() == ip {
-					return iface.Name
-				}
-			}
-		}
-	}
-
-	return ""
 }
 
 func (s *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {

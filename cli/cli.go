@@ -62,7 +62,7 @@ func RegisterFlags(c *Config, fs *flag.FlagSet) {
 	fs.StringVar(&c.HTTPAddr, "remote-http", "", "IP, port, and URI of the HTTP server providing iPXE binaries (i.e. 192.168.2.4:80).")
 	fs.StringVar(&c.IPXEAddr, "remote-ipxe", "", "A url where an iPXE script is served (i.e. http://192.168.2.3:8080).")
 	fs.StringVar(&c.IPXEScript, "remote-ipxe-script", "auto.ipxe", "The name of the iPXE script to use. used with remote-ipxe (http://192.168.2.3/<mac-addr>/auto.ipxe)")
-	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the ipxe-url flag.")
+	fs.StringVar(&c.CustomUserClass, "user-class", "", "A custom user-class (dhcp option 77) to use to determine when to pivot to serving the ipxe script from the remote-ipxe-script flag.")
 }
 
 // validateConfig validates the config struct based on its struct tags.
@@ -143,13 +143,10 @@ func (c *Config) run(ctx context.Context, _ []string) error {
 		return srv2.ListenAndServe(ctx, h2)
 	})
 
-	errCh := make(chan error)
-	go func() {
-		errCh <- g.Wait()
-	}()
+	er := make(chan error)
 	select {
-	case err := <-errCh:
-		return err
+	case er <- g.Wait():
+		return <-er
 	case <-ctx.Done():
 		h.Log.Info("shutting down")
 
